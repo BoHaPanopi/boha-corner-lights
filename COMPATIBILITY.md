@@ -109,6 +109,51 @@ Für **jeden** Kandidaten fehlen vor einer Profilaufnahme dieselben Daten:
 - ein Spieltest je Fahrzeug (Blinker, Warnblinker, Lenkung, beide Seiten,
   Abblendlichtüberlappung) auf dem gepinnten Build, mit und ohne VR.
 
+## Nebelscheinwerfer als Abbiegelicht (Untersuchung 19.11.2026)
+
+Geprüft wurde, ob vorhandene Nebel-/Zusatzfrontscheinwerfer statt neuer
+Lichtanker als Abbiegelichter dienen können. Ergebnis: **Mit den vorhandenen,
+verifizierbaren Daten ist keine getrennte Links/Rechts-Ansteuerung möglich.**
+
+- **Spielseite:** ETS2 schaltet die Frontzusatzleuchten nur gemeinsam. Das
+  SCS-SDK in `third_party/scssdk` bestätigt: Es gibt genau einen Kanal
+  `truck.light.aux.front` (eine gemeinsame Intensitätsstufe für beide Seiten),
+  keinen Links/Rechts-Kanal – und Telemetrie ist grundsätzlich nur lesend,
+  kann also ohnehin keine Lichter schalten.
+- **Lichttypen:** Seitengetrennte Flare-Lichttypen existieren nachweislich nur
+  für Blinker (`left_blinker`/`right_blinker`, belegt durch lesbare lokale
+  Mod-Definitionen, z. B. `Daf_2021_reworked_v0.4.scs`). Für Nebel-/Zusatzlicht
+  gibt es keinen seitengetrennten Typ.
+- **Hook-Seite:** Der native Gate-Hook unterscheidet Quellen ausschließlich über
+  die zwei verifizierten Objektfelder (Markerwert und Typmaske). Serien-Nebel-
+  scheinwerfer beider Seiten teilen sich eine Flare-Definition und damit
+  identische Feldwerte; eine Seitenerkennung bräuchte zusätzliche, nicht
+  verifizierte Objekt-Offsets (z. B. Positionen). Solche Offsets werden nicht
+  geraten. Die Serien-Flare-Definitionen selbst liegen in HashFS-Archiven und
+  sind hier nicht auslesbar; auch die Typmaske der Nebellicht-Flares ist ohne
+  Messung im Spiel unbekannt.
+- **Erhalt der Nebelfunktion:** Selbst bei bekannter Maske würde eine Übernahme
+  der Nebel-Flares deren normale Schalterfunktion verändern; ohne verifizierte
+  Daten ist Anforderung „Nebelscheinwerferfunktion erhalten" nicht garantierbar.
+
+**Sichere Alternativen:**
+
+1. Der bewährte private-Marker-Ansatz (eigene, eindeutige Marker per
+   Modell-Patch) bleibt der unterstützte Weg; die bestätigte
+   Volvo-9700-DD-Funktion ist unverändert.
+2. **Neu: Diagnose-Sonde im Hook.** Unbekannte Flare-Quellen werden einmalig
+   pro eindeutigem (Marker, Maske)-Paar im Plugin-Log erfasst (begrenzt auf 32
+   Einträge, danach still; kein Verhalten wird geändert, unbekannte Quellen
+   laufen unverändert über die Originalfunktion). Damit lassen sich auf dem
+   gepinnten Build echte Maskenwerte von Nebel-/Zusatzlichtern im Spiel
+   erheben, statt sie zu raten – die Datengrundlage für eine spätere,
+   verifizierte Entscheidung.
+3. Mod-seitig wäre je Fahrzeug eine `flare_blink`-Definition mit durchgehendem
+   Leuchtmuster und `light_type: left_blinker`/`right_blinker` als rein
+   blinkergesteuertes Dauerlicht möglich (keine Original-Dateien betroffen,
+   kein Plugin nötig). Diese Teilalternative kann aber weder Lenkwinkel-,
+   Geschwindigkeits- noch Hysterese-Logik abbilden und ist nicht umgesetzt.
+
 ## Noch benötigte Daten für weitere Profile
 
 Für jedes Serien- oder Modfahrzeug muss ein Adapter separat anhand einer rechtmäßig

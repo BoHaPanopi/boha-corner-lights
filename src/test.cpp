@@ -48,5 +48,15 @@ int main() {
     UpdateSteering(0.5f,NAN); assert(!Enabled(1,1500));
     UpdateSteering(1.5f,0); assert(!Enabled(1,1500));
     lastSample=0; assert(!Enabled(2,1500));
-    puts("PASS: profile routing, build fingerprint, blinkers/hazards, steering, speed, invalid data, power gating and stock-source exclusion");
+    // Diagnostic probe: each distinct unknown (marker, mask) pair is reported once.
+    assert(RecordUnknownSource(0.5f,0x40));
+    assert(!RecordUnknownSource(0.5f,0x40));
+    assert(RecordUnknownSource(0.5f,0x41));
+    assert(!RecordUnknownSource(0.0f,0)); // sentinel pair is never reported
+    int added=0;
+    for (unsigned i=0;i<ProbeCapacity*2;i++)
+        added += RecordUnknownSource(1.0f+static_cast<float>(i),0x2) ? 1 : 0;
+    assert(added==static_cast<int>(ProbeCapacity)-2); // table bounded, then silent
+    assert(!RecordUnknownSource(123.0f,0x7));
+    puts("PASS: profile routing, build fingerprint, blinkers/hazards, steering, speed, invalid data, power gating, stock-source exclusion and probe dedup");
 }

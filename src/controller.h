@@ -59,6 +59,26 @@ inline void UpdateSteering(float normalized, float speedMps) {
                                                  Profiles[0].steeringOnDegrees);
 }
 inline std::atomic<unsigned long long> lastSample{0};
+// Diagnostic probe: records distinct unknown (marker bits, mask) flare pairs so
+// real in-game values (e.g. stock fog/aux flares) can be collected on the pinned
+// build without guessing offsets. Purely observational; never drives a light.
+inline constexpr unsigned ProbeCapacity = 32;
+inline std::atomic<unsigned long long> probeTable[ProbeCapacity];
+inline bool RecordUnknownSource(float marker, unsigned mask) {
+    const unsigned long long key =
+        (static_cast<unsigned long long>(Bits(marker)) << 32) | mask;
+    if (!key) return false; // zero key is the empty-slot sentinel
+    for (auto& slot : probeTable) {
+        unsigned long long current = slot.load(std::memory_order_relaxed);
+        if (current == key) return false;
+        if (current == 0) {
+            unsigned long long expected = 0;
+            if (slot.compare_exchange_strong(expected, key)) return true;
+            if (expected == key) return false;
+        }
+    }
+    return false; // table full: stay silent instead of spamming the log
+}
 inline int Side(float f, unsigned mask) {
     int side;
     FindProfile(f, mask, side);

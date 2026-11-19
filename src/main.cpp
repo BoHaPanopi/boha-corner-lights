@@ -25,16 +25,22 @@ void Log(const char* fmt, ...) {
 }
 bool __fastcall Check(void* self) {
     int side = 0;
+    float marker = 0.0f;
+    unsigned mask = 0;
     __try {
         auto* p = static_cast<unsigned char*>(self);
-        side = corner::Side(*reinterpret_cast<float*>(p+0x104),
-                            *reinterpret_cast<unsigned*>(p+0x230));
+        marker = *reinterpret_cast<float*>(p+0x104);
+        mask = *reinterpret_cast<unsigned*>(p+0x230);
+        side = corner::Side(marker, mask);
     } __except(EXCEPTION_EXECUTE_HANDLER) { return original(self); }
     if (side) {
         auto& count = side == 1 ? seenLeft : seenRight;
         if (count.fetch_add(1) == 0) Log("Recognized custom %s corner source",side==1?"left":"right");
         return corner::Enabled(side,GetTickCount64());
     }
+    // Unknown sources keep stock behavior; log each distinct pair once for diagnostics.
+    if (corner::RecordUnknownSource(marker, mask))
+        Log("Probe: unknown flare source marker=0x%08x mask=0x%08x",corner::Bits(marker),mask);
     return original(self);
 }
 SCSAPI_VOID Channel(const scs_string_t name, const scs_u32_t,
