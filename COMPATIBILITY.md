@@ -141,23 +141,34 @@ verifizierbaren Daten ist keine getrennte Links/Rechts-Ansteuerung möglich.**
 1. Der bewährte private-Marker-Ansatz (eigene, eindeutige Marker per
    Modell-Patch) bleibt der unterstützte Weg; die bestätigte
    Volvo-9700-DD-Funktion ist unverändert.
-2. **Diagnose-Sonde (v2).** Unbekannte Flare-Quellen werden einmalig pro
+2. **Diagnose-Sonde (v2.1).** Unbekannte Flare-Quellen werden einmalig pro
    eindeutigem (Marker, Maske)-Paar im Plugin-Log erfasst (32 Paare). Zusätzlich
-   protokolliert v2 je **Lichtinstanz** den Rückgabewert der Originalfunktion
-   (= leuchtet gerade) als `Probe2`-Zeile mit Zeitstempel, Instanzkennung,
-   Marker, Maske und Ein/Aus-Zustand – erste Beobachtung plus Zustandswechsel,
-   begrenzt auf 64 Instanzen mit je 16 Meldungen, danach still. Kein Verhalten
+   protokolliert die Sonde je **Lichtinstanz** den Rückgabewert der
+   Originalfunktion (= leuchtet gerade) als `Probe2`-Zeile mit Zeitstempel,
+   Instanzkennung, Marker, Maske und Ein/Aus-Zustand. Instanzplätze (128)
+   werden erst bei der **ersten beobachteten Aktivierung** belegt: Der Messlauf
+   vom 19.11.2026 hat gezeigt, dass Flare-Instanzen unbeleuchtet erzeugt werden
+   (Massenregistrierung ausnahmslos `lit=0`, Tabelle nach 0,58 s voll). Die
+   erste `lit=1`-Sichtung einer unbekannten Instanz ist damit ihr erster
+   beobachtbarer Zustandswechsel; dauerhaft dunkle Quellen (z. B. geparkter
+   KI-Verkehr) verbrauchen keine Kapazität mehr. Restgrenze: nachts bereits
+   leuchtende KI-Fahrzeuge können weiterhin Plätze belegen – den Testlauf
+   deshalb abseits des Verkehrs durchführen. Je Instanz werden maximal 16
+   Meldungen geschrieben, abgewiesene Aktivierungen zählt ein Überlaufzähler;
+   beim Beenden schreibt das Plugin eine `Probe summary`-Zeile. Kein Verhalten
    wird geändert: Der Originalwert wird unverändert zurückgegeben, unbekannte
    Quellen laufen weiter über die Originalfunktion, es werden nur die beiden
    verifizierten Felder, das Funktionsargument und der Rückgabewert genutzt.
-   **Testprotokoll (eine Sitzung):** Nachts anhalten, Elektrik an, je ~5 s:
-   alles aus → Standlicht → Abblendlicht → Fernlicht → aus → Blinker links →
-   Blinker rechts → Warnblinker → Taste 3; danach Spiel beenden und
-   `BoHaCornerLights.log` sichern (wird beim nächsten Start überschrieben).
-   Blinker-Flares identifizieren sich über periodische Zustandswechsel selbst;
-   Dauerlichter werden über die Zeitstempel dem Schaltprotokoll zugeordnet.
-   Erst aus diesen Messwerten wird entschieden, ob Zusatzscheinwerfer als
-   getrennte Instanzen durch das Gate laufen.
+   **Testprotokoll (eine Sitzung):** Nachts abseits des Verkehrs anhalten,
+   Elektrik an, je ~5 s: alles aus → Standlicht → Abblendlicht → Fernlicht →
+   aus → Blinker links → Blinker rechts → Warnblinker → Taste 3; danach Spiel
+   beenden und `BoHaCornerLights.log` sichern (wird beim nächsten Start
+   überschrieben). Blinker-Flares identifizieren sich über periodische
+   Zustandswechsel selbst; Dauerlichter werden über die Zeitstempel dem
+   Schaltprotokoll zugeordnet. Gemessene Zuordnungen aus dem Lauf vom
+   19.11.2026 (einmalig belegt, Bestätigungslauf empfohlen): `0x01` Standlicht,
+   `0x02` Abblendlicht, `0x04` Fernlicht (inkl. fernlichtgebundener
+   Zusatzspots), `0x40` Blinker links, `0x80` Blinker rechts.
 3. Mod-seitig wäre je Fahrzeug eine `flare_blink`-Definition mit durchgehendem
    Leuchtmuster und `light_type: left_blinker`/`right_blinker` als rein
    blinkergesteuertes Dauerlicht möglich (keine Original-Dateien betroffen,

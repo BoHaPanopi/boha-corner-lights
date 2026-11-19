@@ -102,7 +102,7 @@ extern "C" SCSAPI_RESULT scs_telemetry_init(
     GetModuleFileNameW(own,dll,MAX_PATH);
     if (auto* slash=wcsrchr(dll,L'\\')) wcscpy_s(slash+1,MAX_PATH-(slash+1-dll),L"BoHaCornerLights.log");
     _wfopen_s(&logFile,dll,L"w");
-    Log("BoHa Corner Lights 1.1 (probe v2) - blinkers + steering 15/10 deg, below 40 km/h, 900-deg wheel");
+    Log("BoHa Corner Lights 1.1 (probe v2.1) - blinkers + steering 15/10 deg, below 40 km/h, 900-deg wheel");
     if (!Install()) { if(logFile){fclose(logFile);logFile=nullptr;} return SCS_RESULT_unsupported; }
     const char* channels[]={"truck.lblinker","truck.rblinker","truck.electric.enabled"};
     for (auto* c:channels) {
@@ -127,6 +127,10 @@ extern "C" SCSAPI_RESULT scs_telemetry_init(
 extern "C" SCSAPI_VOID scs_telemetry_shutdown() {
     corner::lastSample.store(0);
     if (hooked) { MH_DisableHook(hooked); MH_RemoveHook(hooked); hooked=nullptr; }
+    unsigned tracked=0;
+    for (const auto& slot : corner::probeInstances)
+        if (slot.instance.load(std::memory_order_relaxed)) tracked++;
+    Log("Probe summary: tracked=%u overflow=%u",tracked,corner::probeOverflow.load());
     Log("Shutdown; custom source calls left=%u right=%u",seenLeft.load(),seenRight.load());
     if(logFile){fclose(logFile);logFile=nullptr;}
 }

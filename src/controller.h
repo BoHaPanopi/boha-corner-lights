@@ -79,11 +79,16 @@ inline bool RecordUnknownSource(float marker, unsigned mask) {
     }
     return false; // table full: stay silent instead of spamming the log
 }
-// Probe v2: bounded lock-free per-instance tracking of the native gate result.
+// Probe v2.1: bounded lock-free per-instance tracking of the native gate result.
 // Each physical light is a distinct native instance, so transitions of the
 // original return value let one session map light circuits by timestamps.
-// Purely observational; never drives a light and uses no new offsets.
-inline constexpr unsigned ProbeInstanceCapacity = 64;
+// Slots are claimed only on the first observed activation: the measured spawn
+// baseline (run of 19.11.2026) shows flare instances start unlit, so a lit
+// sighting of an untracked instance is its first observable state change and
+// permanently dark sources never consume capacity. Inactive sources remain
+// captured once per (marker, mask) pair by the v1 table above. Purely
+// observational; never drives a light and uses no new offsets.
+inline constexpr unsigned ProbeInstanceCapacity = 128;
 inline constexpr unsigned ProbeTransitionLimit = 16;
 struct ProbeInstance {
     std::atomic<const void*> instance{nullptr};
@@ -91,19 +96,23 @@ struct ProbeInstance {
     std::atomic<unsigned> state{0};         // (reported count << 1) | last lit bit
 };
 inline ProbeInstance probeInstances[ProbeInstanceCapacity];
+inline std::atomic<unsigned> probeOverflow{0}; // lit claims denied by a full table
 // Returns the 1-based report number when the observation should be logged,
-// 0 when it is a repeat, over budget, uninitialized or the table is full.
+// 0 when it is unlit-and-untracked, a repeat, over budget or the table is full.
 inline unsigned RecordSourceState(const void* instance, float marker, unsigned mask, bool lit) {
     if (!instance) return 0;
     for (auto& slot : probeInstances) {
         const void* current = slot.instance.load(std::memory_order_acquire);
         if (current == nullptr) {
+            // Claims fill slots front to back, so an empty slot means the
+            // instance is untracked. Dark sources are not worth a slot.
+            if (!lit) return 0;
             const void* expected = nullptr;
             if (slot.instance.compare_exchange_strong(expected, instance)) {
                 slot.key.store((static_cast<unsigned long long>(Bits(marker)) << 32) | mask,
                                std::memory_order_relaxed);
-                slot.state.store(2u | (lit ? 1u : 0u), std::memory_order_release);
-                return 1; // first observation reports the initial state
+                slot.state.store((1u << 1) | 1u, std::memory_order_release);
+                return 1; // first observed activation
             }
             if (expected != instance) continue;
         } else if (current != instance) {
@@ -119,6 +128,7 @@ inline unsigned RecordSourceState(const void* instance, float marker, unsigned m
             if (slot.state.compare_exchange_weak(state, next)) return count + 1u;
         }
     }
+    if (lit) probeOverflow.fetch_add(1, std::memory_order_relaxed);
     return 0; // table full
 }
 inline int Side(float f, unsigned mask) {

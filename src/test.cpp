@@ -58,15 +58,16 @@ int main() {
         added += RecordUnknownSource(1.0f+static_cast<float>(i),0x2) ? 1 : 0;
     assert(added==static_cast<int>(ProbeCapacity)-2); // table bounded, then silent
     assert(!RecordUnknownSource(123.0f,0x7));
-    // Probe v2: per-instance transition tracking within fixed budgets.
+    // Probe v2.1: slots are claimed on first observed activation; dark sources stay slotless.
     int instA=0, instB=0;
-    assert(RecordSourceState(&instA,0.083f,0x1,false)==1); // first observation reports initial state
-    assert(RecordSourceState(&instA,0.083f,0x1,false)==0); // unchanged state stays silent
-    assert(RecordSourceState(&instA,0.083f,0x1,true)==2);  // transition reported with sequence number
-    assert(RecordSourceState(&instA,0.083f,0x1,true)==0);
+    assert(RecordSourceState(&instA,0.083f,0x1,false)==0); // unlit unknown source claims no slot
+    assert(RecordSourceState(&instA,0.083f,0x1,false)==0); // stays slotless while dark
+    assert(RecordSourceState(&instA,0.083f,0x1,true)==1);  // first activation claims and reports
+    assert(RecordSourceState(&instA,0.083f,0x1,true)==0);  // unchanged state stays silent
+    assert(RecordSourceState(&instA,0.083f,0x1,false)==2); // transition reported with sequence number
     assert(RecordSourceState(&instB,0.083f,0x1,true)==1);  // same pair, distinct instance tracked separately
     assert(RecordSourceState(nullptr,0.083f,0x1,true)==0); // null instance ignored
-    bool litState=true; unsigned lastReport=2;
+    bool litState=false; unsigned lastReport=2;
     for (int i=0;i<64;i++) {
         litState=!litState;
         if (const unsigned n=RecordSourceState(&instA,0.083f,0x1,litState)) {
@@ -77,9 +78,15 @@ int main() {
     assert(RecordSourceState(&instA,0.083f,0x1,!litState)==0);
     int fillers[ProbeInstanceCapacity]; int claimed=0;
     for (auto& filler : fillers)
-        claimed += RecordSourceState(&filler,1.0f,0x2,false) ? 1 : 0;
+        claimed += RecordSourceState(&filler,1.0f,0x2,true) ? 1 : 0;
     assert(claimed==static_cast<int>(ProbeInstanceCapacity)-2); // instA/instB occupy two slots
+    assert(probeOverflow.load()==2); // the two unclaimed lit fillers count as overflow
     int overflowInstance=0;
-    assert(RecordSourceState(&overflowInstance,1.0f,0x2,true)==0); // table full stays silent
-    puts("PASS: profile routing, build fingerprint, blinkers/hazards, steering, speed, invalid data, power gating, stock-source exclusion, probe dedup and probe v2 transitions");
+    assert(RecordSourceState(&overflowInstance,1.0f,0x2,false)==0); // dark overflow is not counted
+    assert(probeOverflow.load()==2);
+    assert(RecordSourceState(&overflowInstance,1.0f,0x2,true)==0);  // table full stays silent
+    assert(probeOverflow.load()==3);                                // but lit overflow is counted
+    // Tracked instances keep reporting normally while the table is full.
+    assert(RecordSourceState(&instB,0.083f,0x1,false)==2);
+    puts("PASS: profile routing, build fingerprint, blinkers/hazards, steering, speed, invalid data, power gating, stock-source exclusion, probe dedup and probe v2.1 transitions");
 }
