@@ -20,9 +20,11 @@ Dauerhaftes weißes Abbiegelicht über den eingeschalteten Blinkerzustand und zu
 
 Windows x64; **genau der in `package/game.sha256` aufgeführte ETS2-Build**.
 Der gepinnte Build stammt vom Entwicklungsstand 1.62.3.3 mit der experimentellen
-VR-Version. Andere 1.62-Binaries und andere Spielversionen sind **nicht bestätigt**;
-auch ältere oder zwischenzeitlich per Steam gewechselte Builds (z. B. ein
-1.56-Stand) werden von Installer und DLL abgelehnt.
+VR-Version und ist auf dem Entwicklungssystem als aktive Installation per SHA-256,
+PE-Fingerprint und Spiel-Log bestätigt. Andere 1.62-Binaries und andere
+Spielversionen sind **nicht bestätigt**; jede EXE mit abweichendem Hash (z. B. ein
+älterer 1.56-Stand aus einer zweiten, verwaisten Installation) wird von Installer
+und DLL abgelehnt.
 Der Installer prüft den SHA-256 der EXE. Das Plugin prüft zusätzlich Zeitstempel,
 Image-Größe und die Signatur seiner nativen Schaltstelle. Unbekannte Builds werden abgelehnt.
 

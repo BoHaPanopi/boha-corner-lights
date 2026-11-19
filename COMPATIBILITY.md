@@ -17,7 +17,7 @@ Einbaupunkte liegen im lokal erzeugten Modellpatch; numerische XYZ-Koordinaten s
 diesem Repository nicht verfügbar und werden daher nicht behauptet oder nachgebildet.
 Ein unbekannter Marker wird ignoriert, nicht als Fahrzeugprofil geraten.
 
-## Prüfstand 19.11.2026
+## Prüfstand 19.11.2026 (korrigiert)
 
 Eine erneute Durchsicht von Quellcode, Patch-Spezifikation und lokal verfügbaren
 Mod-Paketen hat **keine** weiteren Fahrzeuge ergeben, für die Modellpfade,
@@ -25,14 +25,28 @@ Lichtpositionen und Versionsdaten zuverlässig nachweisbar wären. Die Profilreg
 behält deshalb bewusst genau den einen geprüften Volvo-Eintrag; es wurden keine
 Profile aus ungeprüften Daten ergänzt.
 
-Zusätzlich festgestellt: Der auf dem Entwicklungssystem aktuell installierte
-ETS2-Build (1.56.1.16, Steam-Build 20463792) entspricht **nicht** dem in
-`package/game.sha256` gepinnten SHA-256. Installer und DLL lehnen diesen Build
-konstruktionsgemäß ab; ein Spieltest ist mit diesem Stand nicht möglich. Für den
-installierten Build existiert kein verifizierter Gate-Fingerprint
-(Zeitstempel, Image-Größe, Gate-RVA, Gate-Bytes). Ohne erneute Offline-Analyse
-der passenden EXE und einen anschließenden Spieltest wird kein neuer Fingerprint
-erzeugt oder behauptet.
+Für den aktiv genutzten Spielstand wurde der gepinnte Build vollständig verifiziert:
+
+- Die aktive ETS2-EXE des Entwicklungssystems (EXE-Metadaten und Pack-Set melden
+  1.62.3.3) stimmt **exakt** mit dem SHA-256 in `package/game.sha256` überein.
+- Der Laufzeit-Fingerprint wurde direkt gegen diese EXE gemessen: PE-Zeitstempel,
+  Image-Größe und die Gate-Bytes an der hinterlegten RVA stimmen überein; das
+  Byte-Muster kommt in der EXE genau einmal vor.
+- `Install.ps1 -CheckOnly` bestätigte End-to-End Spielbuild, Enrique-Quelldatei
+  (Hash entspricht dem gepatchten Zielstand), Patch-Kette und DLL, ohne etwas
+  zu verändern.
+- Spiel- und Plugin-Logs vom 19.11.2026 belegen auf diesem Build: Plugin geladen
+  und initialisiert, nativer Flare-Gate-Hook installiert, beide privaten
+  Links-/Rechtsmarker im Spiel erkannt (je >169 000 Gate-Aufrufe), Lauf im
+  VR-Modus (`-openxr -experimental_vr`).
+
+Korrektur einer früheren Feststellung: Die zuvor gemeldete, nicht passende
+EXE 1.56.1.16 gehört zu einer **zweiten, verwaisten Installation** in einer nicht
+mehr in Steam registrierten Bibliothek. Sie ist nicht der genutzte Spielstand.
+Für diese alte EXE gilt weiterhin: kein passender Hash, kein Fingerprint, wird
+fail-closed abgelehnt. Eine vom Spiel-UI gegebenenfalls angezeigte abweichende
+Versionsnummer ist in den Dateimetadaten nicht nachweisbar; maßgeblich ist
+ausschließlich der SHA-256-Abgleich.
 
 Bestanden am selben Stand: CMake-Build, `ctest` (Steuerlogik, Profilwahl,
 Build-Ablehnung), Paketprüfung (`scripts/package.py` inkl. ZIP-Integritäts- und
@@ -65,11 +79,13 @@ Patch passend zu machen.
 ## VR und Nicht-VR
 
 Die vorhandene Dokumentation und der Entwicklungstest beziehen sich auf den unter
-`package/game.sha256` gepinnten Build; im Repository sind keine separaten VR- und
-Nicht-VR-Fingerprints oder vergleichenden Fahrtests hinterlegt. Deshalb ist weder eine
-allgemeine VR-Kompatibilität noch eine getrennte Nicht-VR-Kompatibilität bestätigt.
-Nur das Programm mit exakt passendem Fingerprint passiert die Installations- und
-Laufzeitprüfung. Ein anderer Build bleibt deaktiviert, auch wenn Telemetrie funktioniert.
+`package/game.sha256` gepinnten Build. Spiel- und Plugin-Logs vom 19.11.2026 belegen
+für diesen Build einen Lauf im experimentellen VR-Modus (OpenXR) mit erfolgreicher
+Plugin-Initialisierung, installiertem Hook und erkannten Markern beider Seiten.
+Ein separater, dokumentierter Nicht-VR-Vergleichslauf liegt weiterhin nicht vor;
+eine getrennte Nicht-VR-Bestätigung bleibt daher offen. Nur das Programm mit exakt
+passendem Fingerprint passiert die Installations- und Laufzeitprüfung. Ein anderer
+Build bleibt deaktiviert, auch wenn Telemetrie funktioniert.
 
 ## Aussagekraft der Tests
 
