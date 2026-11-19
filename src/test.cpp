@@ -53,40 +53,53 @@ int main() {
     assert(!RecordUnknownSource(0.5f,0x40));
     assert(RecordUnknownSource(0.5f,0x41));
     assert(!RecordUnknownSource(0.0f,0)); // sentinel pair is never reported
-    int added=0;
-    for (unsigned i=0;i<ProbeCapacity*2;i++)
-        added += RecordUnknownSource(1.0f+static_cast<float>(i),0x2) ? 1 : 0;
-    assert(added==static_cast<int>(ProbeCapacity)-2); // table bounded, then silent
-    assert(!RecordUnknownSource(123.0f,0x7));
-    // Probe v2.1: slots are claimed on first observed activation; dark sources stay slotless.
+    // Probe v2.2: claims happen only inside a player light window, per-pair budgeted.
     int instA=0, instB=0;
-    assert(RecordSourceState(&instA,0.083f,0x1,false)==0); // unlit unknown source claims no slot
-    assert(RecordSourceState(&instA,0.083f,0x1,false)==0); // stays slotless while dark
-    assert(RecordSourceState(&instA,0.083f,0x1,true)==1);  // first activation claims and reports
-    assert(RecordSourceState(&instA,0.083f,0x1,true)==0);  // unchanged state stays silent
-    assert(RecordSourceState(&instA,0.083f,0x1,false)==2); // transition reported with sequence number
-    assert(RecordSourceState(&instB,0.083f,0x1,true)==1);  // same pair, distinct instance tracked separately
-    assert(RecordSourceState(nullptr,0.083f,0x1,true)==0); // null instance ignored
-    bool litState=false; unsigned lastReport=2;
-    for (int i=0;i<64;i++) {
+    assert(lastPlayerLightChange.load()==0);
+    assert(RecordSourceState(&instA,0.083f,0x1,true,5000)==0); // passive without any window
+    assert(probeRejected.load()==0);                           // passive mode counts nothing
+    lastPlayerLightChange.store(5000);
+    assert(RecordSourceState(&instA,0.083f,0x1,false,5100)==0);// dark source claims no slot
+    assert(RecordSourceState(&instA,0.083f,0x1,true,5000+ProbeWindowMs+1)==0); // window expired
+    assert(probeRejected.load()==0);                           // outside window nothing is counted
+    assert(RecordSourceState(&instA,0.083f,0x1,true,5500)==1); // lit inside window claims
+    assert(RecordSourceState(&instA,0.083f,0x1,true,5600)==0); // repeat state stays silent
+    assert(RecordSourceState(&instB,0.083f,0x1,true,5600)==1); // distinct instance, same pair
+    assert(RecordSourceState(nullptr,0.083f,0x1,true,5500)==0);// null instance ignored
+    bool litState=true; unsigned lastReport=1;
+    for (int i=0;i<64;i++) {                                   // tracked transitions ignore window
         litState=!litState;
-        if (const unsigned n=RecordSourceState(&instA,0.083f,0x1,litState)) {
+        if (const unsigned n=RecordSourceState(&instA,0.083f,0x1,litState,9000)) {
             assert(n==lastReport+1); lastReport=n;
         }
     }
-    assert(lastReport==ProbeTransitionLimit); // per-instance budget enforced
-    assert(RecordSourceState(&instA,0.083f,0x1,!litState)==0);
-    int fillers[ProbeInstanceCapacity]; int claimed=0;
-    for (auto& filler : fillers)
-        claimed += RecordSourceState(&filler,1.0f,0x2,true) ? 1 : 0;
-    assert(claimed==static_cast<int>(ProbeInstanceCapacity)-2); // instA/instB occupy two slots
-    assert(probeOverflow.load()==2); // the two unclaimed lit fillers count as overflow
+    assert(lastReport==ProbeTransitionLimit);                  // per-instance budget enforced
+    assert(RecordSourceState(&instA,0.083f,0x1,!litState,9000)==0);
+    int budgetFill[14];
+    for (auto& fill : budgetFill)                              // pair budget allows 16 in total
+        assert(RecordSourceState(&fill,0.083f,0x1,true,5500)==1);
+    int beyondBudget=0;
+    assert(RecordSourceState(&beyondBudget,0.083f,0x1,true,5500)==0); // pair budget exhausted
+    assert(probeRejected.load()==1);                           // rejection counted once for this second
+    assert(RecordSourceState(&beyondBudget,0.083f,0x1,true,5600)==0);
+    assert(probeRejected.load()==1);                           // repeats in the same second not recounted
+    assert(RecordSourceState(&beyondBudget,0.083f,0x1,true,6400)==0);
+    assert(probeRejected.load()==2);                           // next second counts again
+    int fillers[112]; int claimed=0, index=0;
+    for (int pair=0;pair<7;pair++)
+        for (int k=0;k<16;k++)
+            claimed += RecordSourceState(&fillers[index++],2.0f+static_cast<float>(pair),0x2,true,5500) ? 1 : 0;
+    assert(claimed==112);                                      // table now holds all 128 instances
+    lastPlayerLightChange.store(20000);
     int overflowInstance=0;
-    assert(RecordSourceState(&overflowInstance,1.0f,0x2,false)==0); // dark overflow is not counted
-    assert(probeOverflow.load()==2);
-    assert(RecordSourceState(&overflowInstance,1.0f,0x2,true)==0);  // table full stays silent
-    assert(probeOverflow.load()==3);                                // but lit overflow is counted
-    // Tracked instances keep reporting normally while the table is full.
-    assert(RecordSourceState(&instB,0.083f,0x1,false)==2);
-    puts("PASS: profile routing, build fingerprint, blinkers/hazards, steering, speed, invalid data, power gating, stock-source exclusion, probe dedup and probe v2.1 transitions");
+    assert(RecordSourceState(&overflowInstance,10.0f,0x4,true,20500)==0); // full table stays silent
+    assert(probeRejected.load()==3);                           // full-table rejection counted
+    assert(RecordSourceState(&instB,0.083f,0x1,false,50000)==2); // tracked instances keep reporting
+    // Pair table bounded: 10 pairs are used above, the rest fills up and goes silent.
+    int added=0;
+    for (unsigned i=0;i<ProbeCapacity*2;i++)
+        added += RecordUnknownSource(1.0f+static_cast<float>(i),0x2) ? 1 : 0;
+    assert(added==static_cast<int>(ProbeCapacity)-10);
+    assert(!RecordUnknownSource(123.0f,0x7));
+    puts("PASS: profile routing, build fingerprint, blinkers/hazards, steering, speed, invalid data, power gating, stock-source exclusion, probe dedup and probe v2.2 windowed claims");
 }

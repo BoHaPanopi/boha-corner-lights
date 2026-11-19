@@ -64,56 +64,95 @@ inline std::atomic<unsigned long long> lastSample{0};
 // build without guessing offsets. Purely observational; never drives a light.
 inline constexpr unsigned ProbeCapacity = 32;
 inline std::atomic<unsigned long long> probeTable[ProbeCapacity];
-inline bool RecordUnknownSource(float marker, unsigned mask) {
-    const unsigned long long key =
-        (static_cast<unsigned long long>(Bits(marker)) << 32) | mask;
-    if (!key) return false; // zero key is the empty-slot sentinel
-    for (auto& slot : probeTable) {
-        unsigned long long current = slot.load(std::memory_order_relaxed);
-        if (current == key) return false;
+inline std::atomic<unsigned> pairClaims[ProbeCapacity]; // instance slots used per pair
+// Finds or claims the slot index of a pair key; fresh reports a new claim.
+inline int PairSlot(unsigned long long key, bool& fresh) {
+    fresh = false;
+    if (!key) return -1; // zero key is the empty-slot sentinel
+    for (unsigned i = 0; i < ProbeCapacity; ++i) {
+        unsigned long long current = probeTable[i].load(std::memory_order_relaxed);
+        if (current == key) return static_cast<int>(i);
         if (current == 0) {
             unsigned long long expected = 0;
-            if (slot.compare_exchange_strong(expected, key)) return true;
-            if (expected == key) return false;
+            if (probeTable[i].compare_exchange_strong(expected, key)) {
+                fresh = true;
+                return static_cast<int>(i);
+            }
+            if (expected == key) return static_cast<int>(i);
         }
     }
-    return false; // table full: stay silent instead of spamming the log
+    return -1; // table full: stay silent instead of spamming the log
 }
-// Probe v2.1: bounded lock-free per-instance tracking of the native gate result.
+inline bool RecordUnknownSource(float marker, unsigned mask) {
+    bool fresh = false;
+    PairSlot((static_cast<unsigned long long>(Bits(marker)) << 32) | mask, fresh);
+    return fresh;
+}
+// Probe v2.2: bounded lock-free per-instance tracking of the native gate result.
 // Each physical light is a distinct native instance, so transitions of the
 // original return value let one session map light circuits by timestamps.
-// Slots are claimed only on the first observed activation: the measured spawn
-// baseline (run of 19.11.2026) shows flare instances start unlit, so a lit
-// sighting of an untracked instance is its first observable state change and
-// permanently dark sources never consume capacity. Inactive sources remain
-// captured once per (marker, mask) pair by the v1 table above. Purely
-// observational; never drives a light and uses no new offsets.
+// Slots are claimed only on the first observed activation (measured spawn
+// baseline of 19.11.2026: flare instances start unlit) AND only within a short
+// window after a player light-channel change reported by telemetry, so lit AI
+// traffic no longer floods the table. A per-pair budget additionally prevents a
+// single light type from consuming the capacity. Rejections are counted at most
+// once per second so the counter approximates rejection time, not call volume.
+// Tracked instances keep reporting transitions regardless of the window.
+// Purely observational; never drives a light and uses no new offsets.
 inline constexpr unsigned ProbeInstanceCapacity = 128;
 inline constexpr unsigned ProbeTransitionLimit = 16;
+inline constexpr unsigned ProbePairBudget = 16;
+inline constexpr unsigned long long ProbeWindowMs = 1500;
 struct ProbeInstance {
     std::atomic<const void*> instance{nullptr};
     std::atomic<unsigned long long> key{0}; // marker bits << 32 | mask
     std::atomic<unsigned> state{0};         // (reported count << 1) | last lit bit
 };
 inline ProbeInstance probeInstances[ProbeInstanceCapacity];
-inline std::atomic<unsigned> probeOverflow{0}; // lit claims denied by a full table
+// Tick of the last player light-channel change; 0 keeps claims disabled, which
+// is the safe passive fallback when no light channel could be registered.
+inline std::atomic<unsigned long long> lastPlayerLightChange{0};
+inline bool InProbeWindow(unsigned long long now) {
+    const auto last = lastPlayerLightChange.load(std::memory_order_relaxed);
+    return last != 0 && now >= last && now - last <= ProbeWindowMs;
+}
+inline std::atomic<unsigned> probeRejected{0}; // seconds containing rejected claims
+inline std::atomic<unsigned long long> rejectedSecond{~0ull};
+inline void CountRejected(unsigned long long now) {
+    const unsigned long long second = now / 1000;
+    auto last = rejectedSecond.load(std::memory_order_relaxed);
+    if (last != second && rejectedSecond.compare_exchange_strong(last, second))
+        probeRejected.fetch_add(1, std::memory_order_relaxed);
+}
 // Returns the 1-based report number when the observation should be logged,
-// 0 when it is unlit-and-untracked, a repeat, over budget or the table is full.
-inline unsigned RecordSourceState(const void* instance, float marker, unsigned mask, bool lit) {
+// 0 when it is untracked-and-unclaimable, a repeat or over budget.
+inline unsigned RecordSourceState(const void* instance, float marker, unsigned mask,
+                                  bool lit, unsigned long long now) {
     if (!instance) return 0;
+    const unsigned long long key =
+        (static_cast<unsigned long long>(Bits(marker)) << 32) | mask;
     for (auto& slot : probeInstances) {
         const void* current = slot.instance.load(std::memory_order_acquire);
         if (current == nullptr) {
             // Claims fill slots front to back, so an empty slot means the
-            // instance is untracked. Dark sources are not worth a slot.
-            if (!lit) return 0;
+            // instance is untracked. Dark sources are not worth a slot, and
+            // claims happen only inside a player light-change window.
+            if (!lit || !InProbeWindow(now)) return 0;
+            bool fresh = false;
+            const int pair = PairSlot(key, fresh);
+            if (pair < 0) { CountRejected(now); return 0; } // pair table full
+            unsigned claims = pairClaims[pair].load(std::memory_order_relaxed);
+            for (;;) {
+                if (claims >= ProbePairBudget) { CountRejected(now); return 0; }
+                if (pairClaims[pair].compare_exchange_weak(claims, claims + 1)) break;
+            }
             const void* expected = nullptr;
             if (slot.instance.compare_exchange_strong(expected, instance)) {
-                slot.key.store((static_cast<unsigned long long>(Bits(marker)) << 32) | mask,
-                               std::memory_order_relaxed);
+                slot.key.store(key, std::memory_order_relaxed);
                 slot.state.store((1u << 1) | 1u, std::memory_order_release);
                 return 1; // first observed activation
             }
+            pairClaims[pair].fetch_sub(1, std::memory_order_relaxed); // slot lost to a racer
             if (expected != instance) continue;
         } else if (current != instance) {
             continue;
@@ -128,7 +167,7 @@ inline unsigned RecordSourceState(const void* instance, float marker, unsigned m
             if (slot.state.compare_exchange_weak(state, next)) return count + 1u;
         }
     }
-    if (lit) probeOverflow.fetch_add(1, std::memory_order_relaxed);
+    if (lit && InProbeWindow(now)) CountRejected(now);
     return 0; // table full
 }
 inline int Side(float f, unsigned mask) {

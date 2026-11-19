@@ -141,32 +141,33 @@ verifizierbaren Daten ist keine getrennte Links/Rechts-Ansteuerung möglich.**
 1. Der bewährte private-Marker-Ansatz (eigene, eindeutige Marker per
    Modell-Patch) bleibt der unterstützte Weg; die bestätigte
    Volvo-9700-DD-Funktion ist unverändert.
-2. **Diagnose-Sonde (v2.1).** Unbekannte Flare-Quellen werden einmalig pro
+2. **Diagnose-Sonde (v2.2).** Unbekannte Flare-Quellen werden einmalig pro
    eindeutigem (Marker, Maske)-Paar im Plugin-Log erfasst (32 Paare). Zusätzlich
    protokolliert die Sonde je **Lichtinstanz** den Rückgabewert der
    Originalfunktion (= leuchtet gerade) als `Probe2`-Zeile mit Zeitstempel,
-   Instanzkennung, Marker, Maske und Ein/Aus-Zustand. Instanzplätze (128)
-   werden erst bei der **ersten beobachteten Aktivierung** belegt: Der Messlauf
-   vom 19.11.2026 hat gezeigt, dass Flare-Instanzen unbeleuchtet erzeugt werden
-   (Massenregistrierung ausnahmslos `lit=0`, Tabelle nach 0,58 s voll). Die
-   erste `lit=1`-Sichtung einer unbekannten Instanz ist damit ihr erster
-   beobachtbarer Zustandswechsel; dauerhaft dunkle Quellen (z. B. geparkter
-   KI-Verkehr) verbrauchen keine Kapazität mehr. Restgrenze: nachts bereits
-   leuchtende KI-Fahrzeuge können weiterhin Plätze belegen – den Testlauf
-   deshalb abseits des Verkehrs durchführen. Je Instanz werden maximal 16
-   Meldungen geschrieben, abgewiesene Aktivierungen zählt ein Überlaufzähler;
-   beim Beenden schreibt das Plugin eine `Probe summary`-Zeile. Kein Verhalten
-   wird geändert: Der Originalwert wird unverändert zurückgegeben, unbekannte
-   Quellen laufen weiter über die Originalfunktion, es werden nur die beiden
-   verifizierten Felder, das Funktionsargument und der Rückgabewert genutzt.
-   **Testprotokoll (eine Sitzung):** Nachts abseits des Verkehrs anhalten,
+   Instanzkennung, Marker, Maske und Ein/Aus-Zustand. Der v2.1-Lauf vom
+   19.11.2026 zeigte, dass leuchtender KI-Verkehr die Instanztabelle während
+   der Fahrt füllt (128/128 belegt, davon 100 Positionsleuchten) und dass der
+   damalige Überlaufzähler Aufrufe statt Instanzen zählte (310 958 ≈ ~200
+   leuchtende Fremdinstanzen × Frames). v2.2 begrenzt deshalb dreifach:
+   Instanzplätze werden nur innerhalb von 1,5 s nach einem **eigenen**
+   Lichtschaltvorgang belegt (Telemetriekanäle `truck.light.parking`,
+   `truck.light.beam.low`, `truck.light.beam.high`, `truck.light.aux.front`;
+   KI schaltet nicht synchron zum Testprotokoll), je (Marker, Maske)-Paar
+   gelten maximal 16 der 128 Plätze, und Abweisungen werden höchstens einmal
+   pro Sekunde gezählt (`rejected_seconds` ≈ Abweisungszeit, kein
+   Aufrufvolumen). Bereits verfolgte Instanzen melden Zustandswechsel
+   unabhängig vom Fenster weiter. Sind die Lichtkanäle nicht verfügbar, bleibt
+   die Instanzdiagnose passiv; die Paar-Erfassung arbeitet weiter. Kein
+   Verhalten wird geändert: Der Originalwert wird unverändert zurückgegeben,
+   es werden nur die beiden verifizierten Felder, das Funktionsargument, der
+   Rückgabewert und dokumentierte SDK-Kanäle genutzt.
+   **Testprotokoll (eine Sitzung):** Nachts **im Stand abseits des Verkehrs**,
    Elektrik an, je ~5 s: alles aus → Standlicht → Abblendlicht → Fernlicht →
    aus → Blinker links → Blinker rechts → Warnblinker → Taste 3; danach Spiel
    beenden und `BoHaCornerLights.log` sichern (wird beim nächsten Start
-   überschrieben). Blinker-Flares identifizieren sich über periodische
-   Zustandswechsel selbst; Dauerlichter werden über die Zeitstempel dem
-   Schaltprotokoll zugeordnet. Gemessene Zuordnungen aus dem Lauf vom
-   19.11.2026 (einmalig belegt, Bestätigungslauf empfohlen): `0x01` Standlicht,
+   überschrieben). Gemessene Zuordnungen aus den Läufen vom 19.11.2026
+   (einmalig belegt, Bestätigungslauf empfohlen): `0x01` Standlicht,
    `0x02` Abblendlicht, `0x04` Fernlicht (inkl. fernlichtgebundener
    Zusatzspots), `0x40` Blinker links, `0x80` Blinker rechts.
 3. Mod-seitig wäre je Fahrzeug eine `flare_blink`-Definition mit durchgehendem
