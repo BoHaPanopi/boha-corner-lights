@@ -5,8 +5,41 @@
 #include <cmath>
 #include <limits>
 namespace corner {
-inline constexpr float LeftMarker = 0.127811f;
-inline constexpr float RightMarker = 0.127812f;
+struct VehicleProfile {
+    const char* id;
+    const char* modelAdapter;
+    float leftMarker;
+    float rightMarker;
+    float steeringOnDegrees;
+    float steeringOffDegrees;
+    float steeringMaxSpeedKmh;
+    float lightRangeMeters;
+    float innerAngleDegrees;
+    float outerAngleDegrees;
+    float yawDegrees;
+    float pitchDegrees;
+};
+inline unsigned Bits(float f) { unsigned i; std::memcpy(&i, &f, 4); return i; }
+inline constexpr VehicleProfile Profiles[] = {
+    {"volvo-9700-dd-enrique-front-slots",
+     "vehicle/bus/upgrade/enrique_9700/ec_fpanel.pmg",
+     0.127811f, 0.127812f, 15.0f, 10.0f, 40.0f, 25.0f, 45.0f, 110.0f, 50.0f, -7.0f}
+};
+inline const VehicleProfile* FindProfile(float marker, unsigned mask, int& side) {
+    side = 0;
+    if (mask != 0x2000) return nullptr;
+    for (const auto& profile : Profiles) {
+        if (Bits(marker) == Bits(profile.leftMarker)) {
+            side = 1;
+            return &profile;
+        }
+        if (Bits(marker) == Bits(profile.rightMarker)) {
+            side = 2;
+            return &profile;
+        }
+    }
+    return nullptr;
+}
 inline std::atomic<bool> left{false}, right{false}, electric{false};
 inline std::atomic<bool> active{false};
 inline std::atomic<float> steering{std::numeric_limits<float>::quiet_NaN()};
@@ -15,20 +48,21 @@ inline std::atomic<bool> steerLeft{false}, steerRight{false};
 inline void UpdateSteering(float normalized, float speedMps) {
     // Positive SDK steering is counterclockwise (left). The current wheel range is 900 degrees.
     if (!std::isfinite(normalized) || !std::isfinite(speedMps) ||
-        std::fabs(normalized) > 1.001f || std::fabs(speedMps) >= 40.0f / 3.6f) {
+        std::fabs(normalized) > 1.001f ||
+        std::fabs(speedMps) >= Profiles[0].steeringMaxSpeedKmh / 3.6f) {
         steerLeft=false; steerRight=false; return;
     }
     const float degrees=normalized*450.0f;
-    steerLeft = degrees >= (steerLeft.load() ? 10.0f : 15.0f);
-    steerRight = degrees <= -(steerRight.load() ? 10.0f : 15.0f);
+    steerLeft = degrees >= (steerLeft.load() ? Profiles[0].steeringOffDegrees :
+                                               Profiles[0].steeringOnDegrees);
+    steerRight = degrees <= -(steerRight.load() ? Profiles[0].steeringOffDegrees :
+                                                 Profiles[0].steeringOnDegrees);
 }
 inline std::atomic<unsigned long long> lastSample{0};
-inline unsigned Bits(float f) { unsigned i; std::memcpy(&i, &f, 4); return i; }
 inline int Side(float f, unsigned mask) {
-    if (mask != 0x2000) return 0;
-    if (Bits(f) == Bits(LeftMarker)) return 1;
-    if (Bits(f) == Bits(RightMarker)) return 2;
-    return 0;
+    int side;
+    FindProfile(f, mask, side);
+    return side;
 }
 inline bool Enabled(int side, unsigned long long now) {
     const auto last = lastSample.load();

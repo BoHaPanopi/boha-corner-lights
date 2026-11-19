@@ -9,6 +9,7 @@ extern "C" {
 }
 #include <MinHook.h>
 #include "controller.h"
+#include "fingerprint.h"
 
 namespace {
 using Gate = bool(__fastcall*)(void*);
@@ -67,14 +68,10 @@ bool Install() {
     const auto* dos = reinterpret_cast<IMAGE_DOS_HEADER*>(module);
     const auto* nt = reinterpret_cast<IMAGE_NT_HEADERS64*>(module+dos->e_lfanew);
     // Supported executable fingerprint and exact gate bytes are generated offline.
-#include "fingerprint.h"
-    if (nt->FileHeader.TimeDateStamp != ExpectedStamp ||
-        nt->OptionalHeader.SizeOfImage != ExpectedImageSize) {
-        Log("Unsupported ETS2 build: no hooks installed"); return false;
-    }
     auto* gate = module + GateRva;
-    if (std::memcmp(gate,GateBytes,sizeof(GateBytes))) {
-        Log("Native gate signature mismatch: no hooks installed"); return false;
+    if (!IsSupportedBuild(nt->FileHeader.TimeDateStamp, nt->OptionalHeader.SizeOfImage,
+                          gate, sizeof(GateBytes))) {
+        Log("Unsupported ETS2 build or native gate signature: no hooks installed"); return false;
     }
     if (MH_Initialize() != MH_OK) return false;
     if (MH_CreateHook(gate, &Check, reinterpret_cast<void**>(&original)) != MH_OK) return false;

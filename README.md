@@ -1,6 +1,6 @@
 # BoHa Corner Lights
 
-**Experimentelle Vorabversion 1.1.0 für den Volvo 9700 DD in ETS2.**
+**Experimentelle Vorabversion 1.1.0; derzeit nur für den Volvo 9700 DD in ETS2.**
 
 Dauerhaftes weißes Abbiegelicht über den eingeschalteten Blinkerzustand und zusätzlich
 über den Lenkeinschlag. Die normalen Blinker blinken unverändert weiter.
@@ -30,6 +30,12 @@ Dieses Paket ist **kein allgemeines Abbiegelicht für alle Fahrzeuge**. Benötig
 2. Eine eigene Installation der passenden **Volvo 9700 DD Tuning Parts by Enrique**.
 3. Die am Bus montierte Zubehörkomponente **Front Slots** (`ec_fpanel`).
 4. Eine unterstützte `ec_fpanel.pmg` aus dieser Mod. Der Installer prüft deren Hash.
+
+Die Quellen enthalten jetzt eine Fahrzeugprofil-Auswahl, aber nur das vorhandene,
+geprüfte Volvo-Profil ist eingetragen. Serien-Lkw, andere Busse und weitere Modfahrzeuge
+werden nicht unterstützt. Telemetrie meldet Fahrzeugzustände, erzeugt aber keine
+Lichtquellen oder deren Einbaupositionen. Die Kompatibilitätsmatrix und die konkret
+fehlenden Daten für weitere Adapter stehen in [COMPATIBILITY.md](COMPATIBILITY.md).
 
 Enriques komplette Mod und deren Modelle sind **nicht enthalten**. Der Installer
 erzeugt die geänderte Modelldatei lokal aus deiner vorhandenen Mod mit einem kleinen
@@ -72,7 +78,7 @@ Die ursprüngliche Enrique-Mod wird nicht verändert.
 ## Teststand und Grenzen
 
 - Lokale Steuerungstests für Blinker, Warnblinker, Lenkung, Hysterese, Geschwindigkeit,
-  Rückwärtsfahrt, fehlende Daten und Ausschluss normaler Lichtquellen bestanden.
+  Rückwärtsfahrt, fehlende Daten, unbekannte Lichtquellen und unbekannte Builds bestanden.
 - Modellkonvertierung und Plugin-Initialisierung im Spiel bestätigt.
 - Die endgültige Kegelform und die vollständige Lenkradfunktion sind noch nicht
   abschließend im Fahrspiel validiert. Deshalb ausdrücklich **Pre-release**.
@@ -80,6 +86,7 @@ Die ursprüngliche Enrique-Mod wird nicht verändert.
   Telemetrie-Ausgabe und benötigt bei Spielupdates möglicherweise eine Anpassung.
 - Bei ungewöhnlichem Verhalten Plugin entfernen und den Fehler mit Build-Hash sowie
   `BoHaCornerLights.log` melden. Logs vor Veröffentlichung auf persönliche Angaben prüfen.
+- Die automatisierten Tests sind keine Fahrtests und bestätigen keine weiteren Fahrzeuge.
 
 ## Selbst bauen
 
