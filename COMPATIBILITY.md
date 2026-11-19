@@ -5,9 +5,9 @@
 | Fahrzeug/Umgebung | Status | Adapter und Grenzen |
 | --- | --- | --- |
 | Volvo 9700 DD, Kabine `143d6`, Enrique Front Slots (`ec_fpanel`) | **Bedingt unterstützt** | Einziger vorhandener Adapter: `vehicle/bus/upgrade/enrique_9700/ec_fpanel.pmg`. Es werden ausschließlich die beiden privaten Lichtquellenmarker aus dem lokalen, hash-geprüften Patch ausgewertet. Das passende ETS2-Programm muss außerdem exakt dem SHA-256 in `package/game.sha256` entsprechen. |
-| SCS-Serien-Lkw | **Nicht unterstützt** | Es liegen keine Fahrzeugmodelle, Lichtanker, geprüften Modelldateien oder Fahrzeugprofile vor. |
+| SCS-Serien-Lkw (u. a. DAF, Iveco, MAN, Mercedes-Benz, Renault, Scania, Volvo) | **Nicht unterstützt** | Die Serienmodelle liegen in proprietären HashFS-Archiven, die weder der Installer noch dieses Repository lesen. Es liegen keine ausgelesenen Modellpfade, keine verifizierten Lichtanker-Positionen, keine Quell-/Ziel-Hashes und keine Spieltests vor. |
 | SCS-Serien-Busse außer dem genannten Volvo | **Nicht unterstützt** | Es liegen keine Fahrzeugmodelle, Lichtanker, geprüften Modelldateien oder Fahrzeugprofile vor. |
-| Modfahrzeuge einschließlich anderer Volvo-9700-Modstände | **Nicht unterstützt** | Es gibt keinen lokalen Adapter/Patch dafür. Der vorhandene Installer akzeptiert nur den festgelegten Enrique-Modellpfad und Quellhash. |
+| Modfahrzeuge einschließlich anderer Volvo-9700-Modstände | **Nicht unterstützt** | Es gibt keinen lokalen Adapter/Patch dafür. Der vorhandene Installer akzeptiert nur den festgelegten Enrique-Modellpfad und Quellhash. Auch für andere Slot- und Tuning-Mods (z. B. DAF-XG-Slot-Pakete, Volvo-FH-Reworks) existieren keine verifizierten Marker, Patches oder Hashes. |
 | Unbekannte ETS2-Builds | **Abgelehnt** | Installer und DLL prüfen den bekannten Build; die DLL prüft zusätzlich Zeitstempel, Image-Größe und native Gate-Bytes. Bei Abweichung wird kein Hook installiert. |
 
 Die Profilregistry in `src/controller.h` enthält derzeit genau einen Eintrag. Sie ordnet
@@ -16,6 +16,28 @@ Kegelparameter und Ausrichtung entsprechen der eigenen SII-Lichtdefinition. Die
 Einbaupunkte liegen im lokal erzeugten Modellpatch; numerische XYZ-Koordinaten sind in
 diesem Repository nicht verfügbar und werden daher nicht behauptet oder nachgebildet.
 Ein unbekannter Marker wird ignoriert, nicht als Fahrzeugprofil geraten.
+
+## Prüfstand 19.11.2026
+
+Eine erneute Durchsicht von Quellcode, Patch-Spezifikation und lokal verfügbaren
+Mod-Paketen hat **keine** weiteren Fahrzeuge ergeben, für die Modellpfade,
+Lichtpositionen und Versionsdaten zuverlässig nachweisbar wären. Die Profilregistry
+behält deshalb bewusst genau den einen geprüften Volvo-Eintrag; es wurden keine
+Profile aus ungeprüften Daten ergänzt.
+
+Zusätzlich festgestellt: Der auf dem Entwicklungssystem aktuell installierte
+ETS2-Build (1.56.1.16, Steam-Build 20463792) entspricht **nicht** dem in
+`package/game.sha256` gepinnten SHA-256. Installer und DLL lehnen diesen Build
+konstruktionsgemäß ab; ein Spieltest ist mit diesem Stand nicht möglich. Für den
+installierten Build existiert kein verifizierter Gate-Fingerprint
+(Zeitstempel, Image-Größe, Gate-RVA, Gate-Bytes). Ohne erneute Offline-Analyse
+der passenden EXE und einen anschließenden Spieltest wird kein neuer Fingerprint
+erzeugt oder behauptet.
+
+Bestanden am selben Stand: CMake-Build, `ctest` (Steuerlogik, Profilwahl,
+Build-Ablehnung), Paketprüfung (`scripts/package.py` inkl. ZIP-Integritäts- und
+Inhaltsprüfung) sowie eine Sicherheitsdurchsicht von Hook-Pfad, Patch-Grenzen,
+ZIP-Verarbeitung und Installerskript ohne Befund.
 
 ## Noch benötigte Daten für weitere Profile
 
