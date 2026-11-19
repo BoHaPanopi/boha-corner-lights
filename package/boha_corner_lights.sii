@@ -1,0 +1,35 @@
+SiiNunit
+{
+flare_vehicle : flare.boha.corner_l
+{
+ light_type: police_hooter
+ type: spot
+ setup: candela_hue_saturation
+ diffuse_color: (850, 0, 0)
+ specular_color: (350, 0, 0)
+ range: 25
+ forward_distance: false
+ inner_angle: 45
+ outer_angle: 110
+ pitch_offset: -7
+ fade_distance: 120
+ fade_span: 30
+ state_change_duration: 0.127811
+}
+flare_vehicle : flare.boha.corner_r
+{
+ light_type: police_hooter
+ type: spot
+ setup: candela_hue_saturation
+ diffuse_color: (850, 0, 0)
+ specular_color: (350, 0, 0)
+ range: 25
+ forward_distance: false
+ inner_angle: 45
+ outer_angle: 110
+ pitch_offset: -7
+ fade_distance: 120
+ fade_span: 30
+ state_change_duration: 0.127812
+}
+}

@@ -1,0 +1,5 @@
+BoHa Corner Lights - experimental local add-on.
+Requires the matching Enrique Volvo 9700 DD tuning mod and BoHaCornerLights.dll.
+Place this add-on above Enrique and fit Front Slots to the 143d6 cabin.
+This package is generated from your own installed model; keep it for local use.
+Supported game executable is specified in the plugin release documentation.

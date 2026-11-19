@@ -1,0 +1,17 @@
+name: Build and test
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cmake -S . -B build -A x64
+      - run: cmake --build build --config Release
+      - run: ctest --test-dir build -C Release --output-on-failure
+      - run: python scripts/package.py --dll build/Release/BoHaCornerLights.dll
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BoHaCornerLights-1.1.0-windows-x64
+          path: dist/*

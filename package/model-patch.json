@@ -1,0 +1,120 @@
+{
+  "path": "vehicle/bus/upgrade/enrique_9700/ec_fpanel.pmg",
+  "source_sha256": "99f874add90ef82449d4a9fd4416e0eb8dd69c42480621d73bd880fbf62e5d85",
+  "target_sha256": "c0857afa6b2a715e3e90705c06ae767769eb25dfb5dfd3705c82a174a279b83e",
+  "operations": [
+    {
+      "kind": "copy",
+      "offset": 0,
+      "length": 20
+    },
+    {
+      "kind": "data",
+      "base64": "Eg=="
+    },
+    {
+      "kind": "copy",
+      "offset": 21,
+      "length": 63
+    },
+    {
+      "kind": "data",
+      "base64": "oA=="
+    },
+    {
+      "kind": "copy",
+      "offset": 85,
+      "length": 3
+    },
+    {
+      "kind": "data",
+      "base64": "BAQAACg="
+    },
+    {
+      "kind": "copy",
+      "offset": 90,
+      "length": 3
+    },
+    {
+      "kind": "data",
+      "base64": "LAQ="
+    },
+    {
+      "kind": "copy",
+      "offset": 98,
+      "length": 6
+    },
+    {
+      "kind": "data",
+      "base64": "gA=="
+    },
+    {
+      "kind": "copy",
+      "offset": 105,
+      "length": 23
+    },
+    {
+      "kind": "data",
+      "base64": "Eg=="
+    },
+    {
+      "kind": "copy",
+      "offset": 129,
+      "length": 711
+    },
+    {
+      "kind": "data",
+      "base64": "9syDHQ5/DQDhepS/zczMPQAAgL4AAIA/ygNoPwAAAABsYdg+AAAAAAAAAAD2MK1XogQRAOF6lD/NzMw9AACAvgAAgD/KA2g/AAAAAGxh2L4AAAAAFAAAAA=="
+    },
+    {
+      "kind": "copy",
+      "offset": 840,
+      "length": 64
+    },
+    {
+      "kind": "data",
+      "base64": "LAQ="
+    },
+    {
+      "kind": "copy",
+      "offset": 906,
+      "length": 2
+    },
+    {
+      "kind": "data",
+      "base64": "OAQ="
+    },
+    {
+      "kind": "copy",
+      "offset": 910,
+      "length": 6
+    },
+    {
+      "kind": "data",
+      "base64": "RAQ="
+    },
+    {
+      "kind": "copy",
+      "offset": 918,
+      "length": 18
+    },
+    {
+      "kind": "data",
+      "base64": "gA=="
+    },
+    {
+      "kind": "copy",
+      "offset": 937,
+      "length": 2
+    },
+    {
+      "kind": "data",
+      "base64": "AGZsYXJlLmJvaGEuY29ybmVyX2wAZmxhcmUuYm9oYS5jb3JuZXJfcg=="
+    },
+    {
+      "kind": "copy",
+      "offset": 939,
+      "length": 93
+    }
+  ]
+}

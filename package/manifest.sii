@@ -1,0 +1,13 @@
+SiiNunit
+{
+mod_package : .package {
+ package_version: "1.1.0-preview"
+ display_name: "BoHa - Corner Lights"
+ author: "BoHaPanopi"
+ category[]: "tuning_parts"
+ compatible_versions[]: "1.62.*"
+ dlc_dependencies[]: "dlc_bus"
+ mp_mod_optional: true
+ description_file: "description.txt"
+}
+}
