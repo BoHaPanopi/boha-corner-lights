@@ -1,6 +1,6 @@
 # BoHa Corner Lights
 
-**Experimentelle Vorabversion 1.1.0 für den Volvo 9700 DD in ETS2.**
+**Experimentelle Vorabversion 1.1.0; derzeit nur für den Volvo 9700 DD in ETS2.**
 
 Dauerhaftes weißes Abbiegelicht über den eingeschalteten Blinkerzustand und zusätzlich
 über den Lenkeinschlag. Die normalen Blinker blinken unverändert weiter.
@@ -15,12 +15,34 @@ Dauerhaftes weißes Abbiegelicht über den eingeschalteten Blinkerzustand und zu
 - Nach vorne überlappende Lichtkegel: 50° seitlich ausgerichtet, 110° Kegelbreite,
   25 m Reichweite. So reicht das Licht in den Bereich der normalen Scheinwerfer.
 - Kein Eingriff in Motor, Rekuperation, Tankgröße oder Spielstand.
+- Diagnose v2.2: unbekannte Lichtquellen werden einmalig je (Marker, Maske)-Paar
+  vermerkt; Instanzplätze (128, max. 16 je Paar) werden nur bei einer
+  Aktivierung innerhalb von 1,5 s nach einem eigenen Lichtschaltvorgang belegt
+  (Telemetriekanäle Stand-/Abblend-/Fern-/Zusatzlicht), damit KI-Verkehr die
+  Tabelle nicht füllt. Je Lichtinstanz protokolliert das Log Zustandswechsel
+  (Zeitstempel, Instanzkennung, Marker, Maske, Ein/Aus; je 16 Meldungen), beim
+  Beenden eine Zusammenfassung. Ohne verfügbare Lichtkanäle bleibt die
+  Instanzdiagnose passiv. Alle Quellen werden unverändert an das Spiel
+  durchgereicht. Vorhandene Nebelscheinwerfer lassen sich derzeit nicht
+  seitengetrennt als Abbiegelicht nutzen; Details in
+  [COMPATIBILITY.md](COMPATIBILITY.md).
+- Kalibriermodus (nur Diagnose, standardmäßig aus): Liegt neben der DLL eine
+  Datei `BoHaCornerLights.calib.txt` mit gemessenen Werten (`marker=0x…`,
+  `mask=0x…`), blinkt reihum genau eine passende, bereits erfasste
+  Lichtinstanz (6 s je Instanz, 1 Hz) – ausschließlich im Stand mit
+  eingeschalteter Elektrik. Werte, die mit den Abbiegelicht-Markern
+  kollidieren, werden abgewiesen. Datei löschen stellt sofort das
+  Normalverhalten wieder her.
 
 ## Unterstützter Stand
 
 Windows x64; **genau der in `package/game.sha256` aufgeführte ETS2-Build**.
-Das Entwicklungssystem verwendet den Datenstand 1.62.3.3 und die experimentelle
-VR-Version. Andere 1.62-Binaries und andere Spielversionen sind **nicht bestätigt**.
+Der gepinnte Build stammt vom Entwicklungsstand 1.62.3.3 mit der experimentellen
+VR-Version und ist auf dem Entwicklungssystem als aktive Installation per SHA-256,
+PE-Fingerprint und Spiel-Log bestätigt. Andere 1.62-Binaries und andere
+Spielversionen sind **nicht bestätigt**; jede EXE mit abweichendem Hash (z. B. ein
+älterer 1.56-Stand aus einer zweiten, verwaisten Installation) wird von Installer
+und DLL abgelehnt.
 Der Installer prüft den SHA-256 der EXE. Das Plugin prüft zusätzlich Zeitstempel,
 Image-Größe und die Signatur seiner nativen Schaltstelle. Unbekannte Builds werden abgelehnt.
 
@@ -30,6 +52,12 @@ Dieses Paket ist **kein allgemeines Abbiegelicht für alle Fahrzeuge**. Benötig
 2. Eine eigene Installation der passenden **Volvo 9700 DD Tuning Parts by Enrique**.
 3. Die am Bus montierte Zubehörkomponente **Front Slots** (`ec_fpanel`).
 4. Eine unterstützte `ec_fpanel.pmg` aus dieser Mod. Der Installer prüft deren Hash.
+
+Die Quellen enthalten jetzt eine Fahrzeugprofil-Auswahl, aber nur das vorhandene,
+geprüfte Volvo-Profil ist eingetragen. Serien-Lkw, andere Busse und weitere Modfahrzeuge
+werden nicht unterstützt. Telemetrie meldet Fahrzeugzustände, erzeugt aber keine
+Lichtquellen oder deren Einbaupositionen. Die Kompatibilitätsmatrix und die konkret
+fehlenden Daten für weitere Adapter stehen in [COMPATIBILITY.md](COMPATIBILITY.md).
 
 Enriques komplette Mod und deren Modelle sind **nicht enthalten**. Der Installer
 erzeugt die geänderte Modelldatei lokal aus deiner vorhandenen Mod mit einem kleinen
@@ -72,14 +100,17 @@ Die ursprüngliche Enrique-Mod wird nicht verändert.
 ## Teststand und Grenzen
 
 - Lokale Steuerungstests für Blinker, Warnblinker, Lenkung, Hysterese, Geschwindigkeit,
-  Rückwärtsfahrt, fehlende Daten und Ausschluss normaler Lichtquellen bestanden.
+  Rückwärtsfahrt, fehlende Daten, unbekannte Lichtquellen und unbekannte Builds bestanden.
 - Modellkonvertierung und Plugin-Initialisierung im Spiel bestätigt.
-- Die endgültige Kegelform und die vollständige Lenkradfunktion sind noch nicht
-  abschließend im Fahrspiel validiert. Deshalb ausdrücklich **Pre-release**.
+- **Vom Entwickler bestätigter Praxistest (19.11.2026, ohne VR):** Am Volvo 9700 DD
+  mit Enrique Front Slots funktioniert das Abbiegelicht; Lichtausrichtung und
+  Lichtkegel passen. Der VR-Betrieb ist per Logs belegt (Plugin initialisiert,
+  Marker erkannt), eine Sichtprüfung in VR steht noch aus.
 - Es wird eine interne Lichtfunktion mit MinHook abgefangen. Das ist keine reine
   Telemetrie-Ausgabe und benötigt bei Spielupdates möglicherweise eine Anpassung.
 - Bei ungewöhnlichem Verhalten Plugin entfernen und den Fehler mit Build-Hash sowie
   `BoHaCornerLights.log` melden. Logs vor Veröffentlichung auf persönliche Angaben prüfen.
+- Die automatisierten Tests sind keine Fahrtests und bestätigen keine weiteren Fahrzeuge.
 
 ## Selbst bauen
 

@@ -9,6 +9,7 @@ extern "C" {
 }
 #include <MinHook.h>
 #include "controller.h"
+#include "fingerprint.h"
 
 namespace {
 using Gate = bool(__fastcall*)(void*);
@@ -22,19 +23,65 @@ void Log(const char* fmt, ...) {
     va_list args; va_start(args,fmt); vfprintf(logFile,fmt,args); va_end(args);
     fputc('\n',logFile); fflush(logFile);
 }
+std::atomic<unsigned long long> lastCalibStamp{~0ull};
 bool __fastcall Check(void* self) {
     int side = 0;
+    float marker = 0.0f;
+    unsigned mask = 0;
     __try {
         auto* p = static_cast<unsigned char*>(self);
-        side = corner::Side(*reinterpret_cast<float*>(p+0x104),
-                            *reinterpret_cast<unsigned*>(p+0x230));
+        marker = *reinterpret_cast<float*>(p+0x104);
+        mask = *reinterpret_cast<unsigned*>(p+0x230);
+        side = corner::Side(marker, mask);
     } __except(EXCEPTION_EXECUTE_HANDLER) { return original(self); }
     if (side) {
         auto& count = side == 1 ? seenLeft : seenRight;
         if (count.fetch_add(1) == 0) Log("Recognized custom %s corner source",side==1?"left":"right");
         return corner::Enabled(side,GetTickCount64());
     }
-    return original(self);
+    // Unknown sources keep stock behavior; log each distinct pair once, then
+    // report state transitions per instance (probe v2.2) within fixed budgets.
+    if (corner::RecordUnknownSource(marker, mask))
+        Log("Probe: unknown flare source marker=0x%08x mask=0x%08x",corner::Bits(marker),mask);
+    const bool lit = original(self);
+    const unsigned long long now = GetTickCount64();
+    if (const unsigned report = corner::RecordSourceState(self, marker, mask, lit, now))
+        Log("Probe2 t=%llu inst=%p marker=0x%08x mask=0x%08x lit=%d n=%u",
+            now, self, corner::Bits(marker), mask, lit ? 1 : 0, report);
+    // Calibration mode: blink exactly one armed, tracked instance while stationary.
+    const int forced = corner::CalibState(self, marker, mask, now);
+    if (forced >= 0) {
+        const unsigned long long stamp = now / corner::CalibWindowMs;
+        if (lastCalibStamp.exchange(stamp) != stamp)
+            Log("Calib t=%llu window=%llu inst=%p marker=0x%08x mask=0x%08x blinkt 1 Hz",
+                now, stamp, self, corner::Bits(marker), mask);
+        return forced != 0;
+    }
+    return lit;
+}
+// Player light channels open the probe claim window; index via context cookie.
+const char* const lightChannelNames[] = {
+    SCS_TELEMETRY_TRUCK_CHANNEL_light_parking,
+    SCS_TELEMETRY_TRUCK_CHANNEL_light_low_beam,
+    SCS_TELEMETRY_TRUCK_CHANNEL_light_high_beam,
+    SCS_TELEMETRY_TRUCK_CHANNEL_light_aux_front,
+};
+std::atomic<int> lightStates[4]{{-1},{-1},{-1},{-1}};
+SCSAPI_VOID LightChannel(const scs_string_t, const scs_u32_t,
+                         const scs_value_t* v, const scs_context_t context) {
+    const int index = static_cast<int>(reinterpret_cast<intptr_t>(context));
+    if (index < 0 || index >= 4 || !v) return;
+    int value = -1;
+    if (v->type == SCS_VALUE_TYPE_bool) value = v->value_bool.value ? 1 : 0;
+    else if (v->type == SCS_VALUE_TYPE_u32) value = static_cast<int>(v->value_u32.value);
+    if (value < 0) return;
+    const int previous = lightStates[index].exchange(value);
+    if (previous == value) return;
+    // The initial delivery is not a player action and must not open a window.
+    if (previous == -1) return;
+    const unsigned long long now = GetTickCount64();
+    corner::lastPlayerLightChange.store(now);
+    Log("Light %s=%d t=%llu",lightChannelNames[index],value,now);
 }
 SCSAPI_VOID Channel(const scs_string_t name, const scs_u32_t,
                    const scs_value_t* v, const scs_context_t) {
@@ -67,14 +114,10 @@ bool Install() {
     const auto* dos = reinterpret_cast<IMAGE_DOS_HEADER*>(module);
     const auto* nt = reinterpret_cast<IMAGE_NT_HEADERS64*>(module+dos->e_lfanew);
     // Supported executable fingerprint and exact gate bytes are generated offline.
-#include "fingerprint.h"
-    if (nt->FileHeader.TimeDateStamp != ExpectedStamp ||
-        nt->OptionalHeader.SizeOfImage != ExpectedImageSize) {
-        Log("Unsupported ETS2 build: no hooks installed"); return false;
-    }
     auto* gate = module + GateRva;
-    if (std::memcmp(gate,GateBytes,sizeof(GateBytes))) {
-        Log("Native gate signature mismatch: no hooks installed"); return false;
+    if (!IsSupportedBuild(nt->FileHeader.TimeDateStamp, nt->OptionalHeader.SizeOfImage,
+                          gate, sizeof(GateBytes))) {
+        Log("Unsupported ETS2 build or native gate signature: no hooks installed"); return false;
     }
     if (MH_Initialize() != MH_OK) return false;
     if (MH_CreateHook(gate, &Check, reinterpret_cast<void**>(&original)) != MH_OK) return false;
@@ -94,7 +137,34 @@ extern "C" SCSAPI_RESULT scs_telemetry_init(
     GetModuleFileNameW(own,dll,MAX_PATH);
     if (auto* slash=wcsrchr(dll,L'\\')) wcscpy_s(slash+1,MAX_PATH-(slash+1-dll),L"BoHaCornerLights.log");
     _wfopen_s(&logFile,dll,L"w");
-    Log("BoHa Corner Lights 1.1 - blinkers + steering 15/10 deg, below 40 km/h, 900-deg wheel");
+    Log("BoHa Corner Lights 1.1 (probe v2.3) - blinkers + steering 15/10 deg, below 40 km/h, 900-deg wheel");
+    // Optional calibration file next to the DLL arms the stationary blink mode.
+    wchar_t calibPath[MAX_PATH]; wcscpy_s(calibPath,dll);
+    if (auto* slash=wcsrchr(calibPath,L'\\'))
+        wcscpy_s(slash+1,MAX_PATH-(slash+1-calibPath),L"BoHaCornerLights.calib.txt");
+    FILE* calibFile=nullptr; _wfopen_s(&calibFile,calibPath,L"r");
+    if (calibFile) {
+        unsigned mask=0, markerBits=0; char line[128];
+        while (fgets(line,sizeof line,calibFile)) {
+            unsigned value=0;
+            if (sscanf_s(line," mask = 0x%x",&value)==1) mask=value;
+            else if (sscanf_s(line," marker = 0x%x",&value)==1) markerBits=value;
+        }
+        fclose(calibFile);
+        bool collides=false;
+        for (const auto& profile : corner::Profiles)
+            if (markerBits==corner::Bits(profile.leftMarker) ||
+                markerBits==corner::Bits(profile.rightMarker)) collides=true;
+        if (mask && markerBits && !collides) {
+            corner::calibMarkerBits.store(markerBits);
+            corner::calibMask.store(mask);
+            corner::calibEnabled.store(true);
+            Log("Calibration armed: marker=0x%08x mask=0x%08x; 6 s je Instanz, 1 Hz, nur im Stand",
+                markerBits,mask);
+        } else {
+            Log("Calibration file ignored: ungueltige oder mit Profilen kollidierende Werte");
+        }
+    }
     if (!Install()) { if(logFile){fclose(logFile);logFile=nullptr;} return SCS_RESULT_unsupported; }
     const char* channels[]={"truck.lblinker","truck.rblinker","truck.electric.enabled"};
     for (auto* c:channels) {
@@ -110,6 +180,21 @@ extern "C" SCSAPI_RESULT scs_telemetry_init(
             SCS_TELEMETRY_CHANNEL_FLAG_none,Channel,nullptr)!=SCS_RESULT_ok)
             Log("Steering channel unavailable: %s; blinker control remains available",c);
     }
+    // Optional player light channels drive the probe claim window. Without any
+    // of them the window never opens and the instance probe stays passive.
+    const scs_value_type_t lightTypes[4]={SCS_VALUE_TYPE_bool,SCS_VALUE_TYPE_bool,
+                                          SCS_VALUE_TYPE_bool,SCS_VALUE_TYPE_u32};
+    unsigned lightChannels=0;
+    for (int i=0;i<4;i++) {
+        if (p->register_for_channel(lightChannelNames[i],SCS_U32_NIL,lightTypes[i],
+            SCS_TELEMETRY_CHANNEL_FLAG_none,LightChannel,
+            reinterpret_cast<scs_context_t>(static_cast<intptr_t>(i)))==SCS_RESULT_ok)
+            lightChannels++;
+        else
+            Log("Light channel unavailable: %s",lightChannelNames[i]);
+    }
+    if (!lightChannels)
+        Log("No light channels; instance probe stays passive, pair probe remains active");
     p->register_for_event(SCS_TELEMETRY_EVENT_frame_end,Frame,nullptr);
     p->register_for_event(SCS_TELEMETRY_EVENT_paused,State,nullptr);
     p->register_for_event(SCS_TELEMETRY_EVENT_started,State,nullptr);
@@ -119,6 +204,10 @@ extern "C" SCSAPI_RESULT scs_telemetry_init(
 extern "C" SCSAPI_VOID scs_telemetry_shutdown() {
     corner::lastSample.store(0);
     if (hooked) { MH_DisableHook(hooked); MH_RemoveHook(hooked); hooked=nullptr; }
+    unsigned tracked=0;
+    for (const auto& slot : corner::probeInstances)
+        if (slot.instance.load(std::memory_order_relaxed)) tracked++;
+    Log("Probe summary: tracked=%u rejected_seconds=%u",tracked,corner::probeRejected.load());
     Log("Shutdown; custom source calls left=%u right=%u",seenLeft.load(),seenRight.load());
     if(logFile){fclose(logFile);logFile=nullptr;}
 }

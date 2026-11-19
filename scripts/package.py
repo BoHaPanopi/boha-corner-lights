@@ -10,7 +10,7 @@ target=out/'BoHaCornerLights-1.1.0-preview-windows-x64.zip'
 assert a.dll.is_file(), a.dll
 with ZipFile(target,'w',ZIP_DEFLATED) as z:
     z.write(a.dll,'BoHaCornerLights.dll')
-    for name in ['Install.ps1','README.md','LICENSE','THIRD_PARTY_NOTICES.md']:
+    for name in ['Install.ps1','README.md','COMPATIBILITY.md','LICENSE','THIRD_PARTY_NOTICES.md']:
         z.write(root/name,name)
     for f in (root/'package').iterdir():
         if f.is_file(): z.write(f,f.relative_to(root).as_posix())
