@@ -84,8 +84,10 @@ Die ursprüngliche Enrique-Mod wird nicht verändert.
 - Lokale Steuerungstests für Blinker, Warnblinker, Lenkung, Hysterese, Geschwindigkeit,
   Rückwärtsfahrt, fehlende Daten, unbekannte Lichtquellen und unbekannte Builds bestanden.
 - Modellkonvertierung und Plugin-Initialisierung im Spiel bestätigt.
-- Die endgültige Kegelform und die vollständige Lenkradfunktion sind noch nicht
-  abschließend im Fahrspiel validiert. Deshalb ausdrücklich **Pre-release**.
+- **Vom Entwickler bestätigter Praxistest (19.11.2026, ohne VR):** Am Volvo 9700 DD
+  mit Enrique Front Slots funktioniert das Abbiegelicht; Lichtausrichtung und
+  Lichtkegel passen. Der VR-Betrieb ist per Logs belegt (Plugin initialisiert,
+  Marker erkannt), eine Sichtprüfung in VR steht noch aus.
 - Es wird eine interne Lichtfunktion mit MinHook abgefangen. Das ist keine reine
   Telemetrie-Ausgabe und benötigt bei Spielupdates möglicherweise eine Anpassung.
 - Bei ungewöhnlichem Verhalten Plugin entfernen und den Fehler mit Build-Hash sowie
