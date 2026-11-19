@@ -15,10 +15,12 @@ Dauerhaftes weißes Abbiegelicht über den eingeschalteten Blinkerzustand und zu
 - Nach vorne überlappende Lichtkegel: 50° seitlich ausgerichtet, 110° Kegelbreite,
   25 m Reichweite. So reicht das Licht in den Bereich der normalen Scheinwerfer.
 - Kein Eingriff in Motor, Rekuperation, Tankgröße oder Spielstand.
-- Diagnose: unbekannte Lichtquellen werden einmalig je (Marker, Maske)-Paar im
-  Log vermerkt (max. 32 Einträge) und unverändert an das Spiel durchgereicht.
-  Vorhandene Nebelscheinwerfer lassen sich derzeit nicht seitengetrennt als
-  Abbiegelicht nutzen; Details in [COMPATIBILITY.md](COMPATIBILITY.md).
+- Diagnose v2: unbekannte Lichtquellen werden einmalig je (Marker, Maske)-Paar
+  vermerkt; zusätzlich protokolliert das Log je Lichtinstanz Zustandswechsel
+  (Zeitstempel, Instanzkennung, Marker, Maske, Ein/Aus) – begrenzt auf 64
+  Instanzen mit je 16 Meldungen. Alle Quellen werden unverändert an das Spiel
+  durchgereicht. Vorhandene Nebelscheinwerfer lassen sich derzeit nicht
+  seitengetrennt als Abbiegelicht nutzen; Details in [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ## Unterstützter Stand
 

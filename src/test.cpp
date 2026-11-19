@@ -58,5 +58,28 @@ int main() {
         added += RecordUnknownSource(1.0f+static_cast<float>(i),0x2) ? 1 : 0;
     assert(added==static_cast<int>(ProbeCapacity)-2); // table bounded, then silent
     assert(!RecordUnknownSource(123.0f,0x7));
-    puts("PASS: profile routing, build fingerprint, blinkers/hazards, steering, speed, invalid data, power gating, stock-source exclusion and probe dedup");
+    // Probe v2: per-instance transition tracking within fixed budgets.
+    int instA=0, instB=0;
+    assert(RecordSourceState(&instA,0.083f,0x1,false)==1); // first observation reports initial state
+    assert(RecordSourceState(&instA,0.083f,0x1,false)==0); // unchanged state stays silent
+    assert(RecordSourceState(&instA,0.083f,0x1,true)==2);  // transition reported with sequence number
+    assert(RecordSourceState(&instA,0.083f,0x1,true)==0);
+    assert(RecordSourceState(&instB,0.083f,0x1,true)==1);  // same pair, distinct instance tracked separately
+    assert(RecordSourceState(nullptr,0.083f,0x1,true)==0); // null instance ignored
+    bool litState=true; unsigned lastReport=2;
+    for (int i=0;i<64;i++) {
+        litState=!litState;
+        if (const unsigned n=RecordSourceState(&instA,0.083f,0x1,litState)) {
+            assert(n==lastReport+1); lastReport=n;
+        }
+    }
+    assert(lastReport==ProbeTransitionLimit); // per-instance budget enforced
+    assert(RecordSourceState(&instA,0.083f,0x1,!litState)==0);
+    int fillers[ProbeInstanceCapacity]; int claimed=0;
+    for (auto& filler : fillers)
+        claimed += RecordSourceState(&filler,1.0f,0x2,false) ? 1 : 0;
+    assert(claimed==static_cast<int>(ProbeInstanceCapacity)-2); // instA/instB occupy two slots
+    int overflowInstance=0;
+    assert(RecordSourceState(&overflowInstance,1.0f,0x2,true)==0); // table full stays silent
+    puts("PASS: profile routing, build fingerprint, blinkers/hazards, steering, speed, invalid data, power gating, stock-source exclusion, probe dedup and probe v2 transitions");
 }

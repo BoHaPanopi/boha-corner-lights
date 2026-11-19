@@ -79,6 +79,48 @@ inline bool RecordUnknownSource(float marker, unsigned mask) {
     }
     return false; // table full: stay silent instead of spamming the log
 }
+// Probe v2: bounded lock-free per-instance tracking of the native gate result.
+// Each physical light is a distinct native instance, so transitions of the
+// original return value let one session map light circuits by timestamps.
+// Purely observational; never drives a light and uses no new offsets.
+inline constexpr unsigned ProbeInstanceCapacity = 64;
+inline constexpr unsigned ProbeTransitionLimit = 16;
+struct ProbeInstance {
+    std::atomic<const void*> instance{nullptr};
+    std::atomic<unsigned long long> key{0}; // marker bits << 32 | mask
+    std::atomic<unsigned> state{0};         // (reported count << 1) | last lit bit
+};
+inline ProbeInstance probeInstances[ProbeInstanceCapacity];
+// Returns the 1-based report number when the observation should be logged,
+// 0 when it is a repeat, over budget, uninitialized or the table is full.
+inline unsigned RecordSourceState(const void* instance, float marker, unsigned mask, bool lit) {
+    if (!instance) return 0;
+    for (auto& slot : probeInstances) {
+        const void* current = slot.instance.load(std::memory_order_acquire);
+        if (current == nullptr) {
+            const void* expected = nullptr;
+            if (slot.instance.compare_exchange_strong(expected, instance)) {
+                slot.key.store((static_cast<unsigned long long>(Bits(marker)) << 32) | mask,
+                               std::memory_order_relaxed);
+                slot.state.store(2u | (lit ? 1u : 0u), std::memory_order_release);
+                return 1; // first observation reports the initial state
+            }
+            if (expected != instance) continue;
+        } else if (current != instance) {
+            continue;
+        }
+        unsigned state = slot.state.load(std::memory_order_acquire);
+        for (;;) {
+            const unsigned count = state >> 1;
+            if (count == 0) return 0;                    // claim still in flight elsewhere
+            if (((state & 1u) != 0) == lit) return 0;    // no transition
+            if (count >= ProbeTransitionLimit) return 0; // per-instance budget used up
+            const unsigned next = ((count + 1u) << 1) | (lit ? 1u : 0u);
+            if (slot.state.compare_exchange_weak(state, next)) return count + 1u;
+        }
+    }
+    return 0; // table full
+}
 inline int Side(float f, unsigned mask) {
     int side;
     FindProfile(f, mask, side);

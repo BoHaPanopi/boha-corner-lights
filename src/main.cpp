@@ -38,10 +38,15 @@ bool __fastcall Check(void* self) {
         if (count.fetch_add(1) == 0) Log("Recognized custom %s corner source",side==1?"left":"right");
         return corner::Enabled(side,GetTickCount64());
     }
-    // Unknown sources keep stock behavior; log each distinct pair once for diagnostics.
+    // Unknown sources keep stock behavior; log each distinct pair once, then
+    // report state transitions per instance (probe v2) within fixed budgets.
     if (corner::RecordUnknownSource(marker, mask))
         Log("Probe: unknown flare source marker=0x%08x mask=0x%08x",corner::Bits(marker),mask);
-    return original(self);
+    const bool lit = original(self);
+    if (const unsigned report = corner::RecordSourceState(self, marker, mask, lit))
+        Log("Probe2 t=%llu inst=%p marker=0x%08x mask=0x%08x lit=%d n=%u",
+            GetTickCount64(), self, corner::Bits(marker), mask, lit ? 1 : 0, report);
+    return lit;
 }
 SCSAPI_VOID Channel(const scs_string_t name, const scs_u32_t,
                    const scs_value_t* v, const scs_context_t) {
@@ -97,7 +102,7 @@ extern "C" SCSAPI_RESULT scs_telemetry_init(
     GetModuleFileNameW(own,dll,MAX_PATH);
     if (auto* slash=wcsrchr(dll,L'\\')) wcscpy_s(slash+1,MAX_PATH-(slash+1-dll),L"BoHaCornerLights.log");
     _wfopen_s(&logFile,dll,L"w");
-    Log("BoHa Corner Lights 1.1 - blinkers + steering 15/10 deg, below 40 km/h, 900-deg wheel");
+    Log("BoHa Corner Lights 1.1 (probe v2) - blinkers + steering 15/10 deg, below 40 km/h, 900-deg wheel");
     if (!Install()) { if(logFile){fclose(logFile);logFile=nullptr;} return SCS_RESULT_unsupported; }
     const char* channels[]={"truck.lblinker","truck.rblinker","truck.electric.enabled"};
     for (auto* c:channels) {

@@ -141,13 +141,23 @@ verifizierbaren Daten ist keine getrennte Links/Rechts-Ansteuerung möglich.**
 1. Der bewährte private-Marker-Ansatz (eigene, eindeutige Marker per
    Modell-Patch) bleibt der unterstützte Weg; die bestätigte
    Volvo-9700-DD-Funktion ist unverändert.
-2. **Neu: Diagnose-Sonde im Hook.** Unbekannte Flare-Quellen werden einmalig
-   pro eindeutigem (Marker, Maske)-Paar im Plugin-Log erfasst (begrenzt auf 32
-   Einträge, danach still; kein Verhalten wird geändert, unbekannte Quellen
-   laufen unverändert über die Originalfunktion). Damit lassen sich auf dem
-   gepinnten Build echte Maskenwerte von Nebel-/Zusatzlichtern im Spiel
-   erheben, statt sie zu raten – die Datengrundlage für eine spätere,
-   verifizierte Entscheidung.
+2. **Diagnose-Sonde (v2).** Unbekannte Flare-Quellen werden einmalig pro
+   eindeutigem (Marker, Maske)-Paar im Plugin-Log erfasst (32 Paare). Zusätzlich
+   protokolliert v2 je **Lichtinstanz** den Rückgabewert der Originalfunktion
+   (= leuchtet gerade) als `Probe2`-Zeile mit Zeitstempel, Instanzkennung,
+   Marker, Maske und Ein/Aus-Zustand – erste Beobachtung plus Zustandswechsel,
+   begrenzt auf 64 Instanzen mit je 16 Meldungen, danach still. Kein Verhalten
+   wird geändert: Der Originalwert wird unverändert zurückgegeben, unbekannte
+   Quellen laufen weiter über die Originalfunktion, es werden nur die beiden
+   verifizierten Felder, das Funktionsargument und der Rückgabewert genutzt.
+   **Testprotokoll (eine Sitzung):** Nachts anhalten, Elektrik an, je ~5 s:
+   alles aus → Standlicht → Abblendlicht → Fernlicht → aus → Blinker links →
+   Blinker rechts → Warnblinker → Taste 3; danach Spiel beenden und
+   `BoHaCornerLights.log` sichern (wird beim nächsten Start überschrieben).
+   Blinker-Flares identifizieren sich über periodische Zustandswechsel selbst;
+   Dauerlichter werden über die Zeitstempel dem Schaltprotokoll zugeordnet.
+   Erst aus diesen Messwerten wird entschieden, ob Zusatzscheinwerfer als
+   getrennte Instanzen durch das Gate laufen.
 3. Mod-seitig wäre je Fahrzeug eine `flare_blink`-Definition mit durchgehendem
    Leuchtmuster und `light_type: left_blinker`/`right_blinker` als rein
    blinkergesteuertes Dauerlicht möglich (keine Original-Dateien betroffen,
