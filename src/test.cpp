@@ -95,11 +95,34 @@ int main() {
     assert(RecordSourceState(&overflowInstance,10.0f,0x4,true,20500)==0); // full table stays silent
     assert(probeRejected.load()==3);                           // full-table rejection counted
     assert(RecordSourceState(&instB,0.083f,0x1,false,50000)==2); // tracked instances keep reporting
+    // Calibration mode (v2.3): only armed, matching, tracked, stationary instances blink.
+    assert(CalibState(&instA,0.083f,0x1,96000)==-1); // disabled by default
+    calibEnabled.store(true);
+    calibMarkerBits.store(Bits(0.083f));
+    calibMask.store(0x1);
+    active=true; electric=true;
+    speed.store(NAN);  assert(CalibState(&instA,0.083f,0x1,96000)==-1); // unknown speed fails safe
+    speed.store(10.0f); assert(CalibState(&instA,0.083f,0x1,96000)==-1); // moving vehicle stays stock
+    speed.store(0.0f);
+    assert(CalibState(&instA,0.083f,0x2,96000)==-1); // mask mismatch stays stock
+    assert(CalibState(&instA,0.5f,0x1,96000)==-1);   // marker mismatch stays stock
+    int strangerInstance=0;
+    assert(CalibState(&strangerInstance,0.083f,0x1,96000)==-1); // untracked stays stock
+    // 16 tracked matching instances: instA is ordinal 0, instB ordinal 1.
+    assert(CalibState(&instA,0.083f,0x1,96000)==0);  // its window, blink phase off
+    assert(CalibState(&instA,0.083f,0x1,96500)==1);  // its window, blink phase on
+    assert(CalibState(&instB,0.083f,0x1,96000)==-1); // not its window
+    assert(CalibState(&instB,0.083f,0x1,6000)==0);   // next window belongs to ordinal 1
+    assert(CalibState(&instA,0.083f,0x1,6000)==-1);
+    electric=false; assert(CalibState(&instA,0.083f,0x1,96000)==-1); // power gate respected
+    electric=true;
+    calibEnabled.store(false);
+    assert(CalibState(&instA,0.083f,0x1,96000)==-1); // disarming restores stock behavior
     // Pair table bounded: 10 pairs are used above, the rest fills up and goes silent.
     int added=0;
     for (unsigned i=0;i<ProbeCapacity*2;i++)
         added += RecordUnknownSource(1.0f+static_cast<float>(i),0x2) ? 1 : 0;
     assert(added==static_cast<int>(ProbeCapacity)-10);
     assert(!RecordUnknownSource(123.0f,0x7));
-    puts("PASS: profile routing, build fingerprint, blinkers/hazards, steering, speed, invalid data, power gating, stock-source exclusion, probe dedup and probe v2.2 windowed claims");
+    puts("PASS: profile routing, build fingerprint, blinkers/hazards, steering, speed, invalid data, power gating, stock-source exclusion, probe dedup, probe v2.2 windowed claims and calibration gating");
 }

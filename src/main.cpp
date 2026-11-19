@@ -23,6 +23,7 @@ void Log(const char* fmt, ...) {
     va_list args; va_start(args,fmt); vfprintf(logFile,fmt,args); va_end(args);
     fputc('\n',logFile); fflush(logFile);
 }
+std::atomic<unsigned long long> lastCalibStamp{~0ull};
 bool __fastcall Check(void* self) {
     int side = 0;
     float marker = 0.0f;
@@ -47,6 +48,15 @@ bool __fastcall Check(void* self) {
     if (const unsigned report = corner::RecordSourceState(self, marker, mask, lit, now))
         Log("Probe2 t=%llu inst=%p marker=0x%08x mask=0x%08x lit=%d n=%u",
             now, self, corner::Bits(marker), mask, lit ? 1 : 0, report);
+    // Calibration mode: blink exactly one armed, tracked instance while stationary.
+    const int forced = corner::CalibState(self, marker, mask, now);
+    if (forced >= 0) {
+        const unsigned long long stamp = now / corner::CalibWindowMs;
+        if (lastCalibStamp.exchange(stamp) != stamp)
+            Log("Calib t=%llu window=%llu inst=%p marker=0x%08x mask=0x%08x blinkt 1 Hz",
+                now, stamp, self, corner::Bits(marker), mask);
+        return forced != 0;
+    }
     return lit;
 }
 // Player light channels open the probe claim window; index via context cookie.
@@ -127,7 +137,34 @@ extern "C" SCSAPI_RESULT scs_telemetry_init(
     GetModuleFileNameW(own,dll,MAX_PATH);
     if (auto* slash=wcsrchr(dll,L'\\')) wcscpy_s(slash+1,MAX_PATH-(slash+1-dll),L"BoHaCornerLights.log");
     _wfopen_s(&logFile,dll,L"w");
-    Log("BoHa Corner Lights 1.1 (probe v2.2) - blinkers + steering 15/10 deg, below 40 km/h, 900-deg wheel");
+    Log("BoHa Corner Lights 1.1 (probe v2.3) - blinkers + steering 15/10 deg, below 40 km/h, 900-deg wheel");
+    // Optional calibration file next to the DLL arms the stationary blink mode.
+    wchar_t calibPath[MAX_PATH]; wcscpy_s(calibPath,dll);
+    if (auto* slash=wcsrchr(calibPath,L'\\'))
+        wcscpy_s(slash+1,MAX_PATH-(slash+1-calibPath),L"BoHaCornerLights.calib.txt");
+    FILE* calibFile=nullptr; _wfopen_s(&calibFile,calibPath,L"r");
+    if (calibFile) {
+        unsigned mask=0, markerBits=0; char line[128];
+        while (fgets(line,sizeof line,calibFile)) {
+            unsigned value=0;
+            if (sscanf_s(line," mask = 0x%x",&value)==1) mask=value;
+            else if (sscanf_s(line," marker = 0x%x",&value)==1) markerBits=value;
+        }
+        fclose(calibFile);
+        bool collides=false;
+        for (const auto& profile : corner::Profiles)
+            if (markerBits==corner::Bits(profile.leftMarker) ||
+                markerBits==corner::Bits(profile.rightMarker)) collides=true;
+        if (mask && markerBits && !collides) {
+            corner::calibMarkerBits.store(markerBits);
+            corner::calibMask.store(mask);
+            corner::calibEnabled.store(true);
+            Log("Calibration armed: marker=0x%08x mask=0x%08x; 6 s je Instanz, 1 Hz, nur im Stand",
+                markerBits,mask);
+        } else {
+            Log("Calibration file ignored: ungueltige oder mit Profilen kollidierende Werte");
+        }
+    }
     if (!Install()) { if(logFile){fclose(logFile);logFile=nullptr;} return SCS_RESULT_unsupported; }
     const char* channels[]={"truck.lblinker","truck.rblinker","truck.electric.enabled"};
     for (auto* c:channels) {

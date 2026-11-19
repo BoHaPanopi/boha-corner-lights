@@ -170,6 +170,38 @@ inline unsigned RecordSourceState(const void* instance, float marker, unsigned m
     if (lit && InProbeWindow(now)) CountRejected(now);
     return 0; // table full
 }
+// Calibration mode (v2.3): visually identifies single tracked flare instances.
+// With only the two verified fields available, instances sharing one definition
+// are indistinguishable by data, so an explicitly armed, stationary-only mode
+// blinks exactly one matching tracked instance at a time (6 s windows, 1 Hz).
+// Default off: without the opt-in file every light keeps its original state.
+inline constexpr unsigned long long CalibWindowMs = 6000;
+inline constexpr unsigned long long CalibBlinkMs = 500;
+inline std::atomic<bool> calibEnabled{false};
+inline std::atomic<unsigned> calibMarkerBits{0};
+inline std::atomic<unsigned> calibMask{0};
+// Returns the forced state (0/1) when this instance is the active calibration
+// target, or -1 to keep the original gate result untouched.
+inline int CalibState(const void* instance, float marker, unsigned mask, unsigned long long now) {
+    if (!calibEnabled.load(std::memory_order_relaxed)) return -1;
+    if (Bits(marker) != calibMarkerBits.load(std::memory_order_relaxed) ||
+        mask != calibMask.load(std::memory_order_relaxed)) return -1;
+    const float speedMps = speed.load();
+    if (!std::isfinite(speedMps) || std::fabs(speedMps) > 0.5f) return -1; // moving: fail safe
+    if (!active.load() || !electric.load()) return -1;
+    const unsigned long long key =
+        (static_cast<unsigned long long>(Bits(marker)) << 32) | mask;
+    int ordinal = -1, total = 0;
+    for (const auto& slot : probeInstances) {
+        const void* tracked = slot.instance.load(std::memory_order_acquire);
+        if (!tracked || slot.key.load(std::memory_order_relaxed) != key) continue;
+        if (tracked == instance) ordinal = total;
+        total++;
+    }
+    if (ordinal < 0 || total == 0) return -1; // untracked instances stay stock
+    if (static_cast<unsigned long long>(ordinal) != (now / CalibWindowMs) % total) return -1;
+    return ((now / CalibBlinkMs) & 1ull) ? 1 : 0;
+}
 inline int Side(float f, unsigned mask) {
     int side;
     FindProfile(f, mask, side);

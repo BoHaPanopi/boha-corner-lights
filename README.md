@@ -26,6 +26,13 @@ Dauerhaftes weißes Abbiegelicht über den eingeschalteten Blinkerzustand und zu
   durchgereicht. Vorhandene Nebelscheinwerfer lassen sich derzeit nicht
   seitengetrennt als Abbiegelicht nutzen; Details in
   [COMPATIBILITY.md](COMPATIBILITY.md).
+- Kalibriermodus (nur Diagnose, standardmäßig aus): Liegt neben der DLL eine
+  Datei `BoHaCornerLights.calib.txt` mit gemessenen Werten (`marker=0x…`,
+  `mask=0x…`), blinkt reihum genau eine passende, bereits erfasste
+  Lichtinstanz (6 s je Instanz, 1 Hz) – ausschließlich im Stand mit
+  eingeschalteter Elektrik. Werte, die mit den Abbiegelicht-Markern
+  kollidieren, werden abgewiesen. Datei löschen stellt sofort das
+  Normalverhalten wieder her.
 
 ## Unterstützter Stand
 

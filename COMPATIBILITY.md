@@ -176,6 +176,25 @@ verifizierbaren Daten ist keine getrennte Links/Rechts-Ansteuerung möglich.**
    kein Plugin nötig). Diese Teilalternative kann aber weder Lenkwinkel-,
    Geschwindigkeits- noch Hysterese-Logik abbilden und ist nicht umgesetzt.
 
+3. **Kalibriermodus (v2.3, visuelle Instanz-Identifikation).** Die
+   Differenzmessung vom 19.11.2026 ergab 11 Fernlicht-Instanzen (`0x04`) mit
+   einem montierten Zusatzscheinwerfer gegenüber 8 ohne ihn; innerhalb der
+   Maske sind die Instanzen datenseitig nicht unterscheidbar (gleicher Marker,
+   gleiche Maske, identisches Schaltverhalten, sitzungsflüchtige Adressen;
+   Positions- oder Modellfelder wären ungeprüfte Offsets und werden nicht
+   verwendet). Deshalb gibt es einen ausdrücklich zu aktivierenden, sofort
+   reversiblen Sichtmodus: Eine Datei `BoHaCornerLights.calib.txt` neben der
+   DLL mit gemessenen Werten (`marker=0x3da9fbe7`, `mask=0x04`) schaltet ihn
+   scharf. Dann blinkt reihum genau **eine** passende, bereits per Sonde
+   erfasste Instanz (Fenster 6 s, Takt 1 Hz), alle übrigen Lichter bleiben
+   unverändert. Der Modus arbeitet nur im Stand (|v| ≤ 0,5 m/s, bei fehlender
+   Geschwindigkeitstelemetrie bleibt er aus), nur mit eingeschalteter Elektrik
+   und nie für Marker, die mit den registrierten Abbiegelicht-Profilen
+   kollidieren. Jede Fensterzuteilung wird als `Calib`-Zeile mit Zeitstempel,
+   Fensternummer und Instanzkennung geloggt, sodass die beobachtete Lampe
+   eindeutig einer Instanzkennung der Sitzung zugeordnet werden kann. Ohne
+   Datei verhält sich das Plugin exakt wie zuvor.
+
 ## Noch benötigte Daten für weitere Profile
 
 Für jedes Serien- oder Modfahrzeug muss ein Adapter separat anhand einer rechtmäßig
